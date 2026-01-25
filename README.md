@@ -14,12 +14,26 @@
 
 ---
 
+## 大模型
+
+大模型使用兼容 openai 的国内大模型，环境变量需要配置
+
+参见 .env.example 文件
+
+```bash
+# OPENAI_API_KEY=your_openai_api_key_here
+# OPENAI_BASE_URL=https://api.openai.com/v1
+# MODEL_NAME=gpt-3.5-turbo
+# PORT=4001
+```
+
 ## 🧱 技术栈
+
 | 类别 | Python 方案 | TypeScript 方案 |
 |---|---|---|
-| 环境管理 | Miniconda + conda-lock | nvm + corepack(pnpm) |
-| 依赖文件 | requirements.txt / pyproject.toml | package.json |
-| 交互开发 | Jupyter Lab | －（可直接用 VSCode 调试） |
+| 环境管理 | uv | nvm + pnpm + tsx |
+| 依赖文件 | pyproject.toml | package.json |
+| 交互开发 | Jupyter Lab | VSCode 调试 |
 | 主框架 | langchain    | langchain   |
 | LLM 调用 | openai、langchain-openai | openai、langchain-openai |
 | 向量库 | Chroma、FAISS | chromadb |
@@ -27,7 +41,7 @@
 | 代码风格 | black / ruff | prettier / eslint |
 
 
-- Python 环境管理 [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/)
+- Python 环境管理 [uv](https://github.com/astral-sh/uv)
 - Python 交互式开发环境 [Jupyter Lab](https://jupyterlab.readthedocs.io/en/stable/getting_started/installation.html)
 - 大模型应用开发框架 [LangChain](https://docs.langchain.com/oss/python/langchain/overview)
 - [OpenAI Python SDK](https://github.com/openai/openai-python?tab=readme-ov-file#installation)
@@ -39,47 +53,72 @@
 ```bash
 langchain-examples/
   ├─ python/                 # Python 示例
-  │  ├─ 00-env-validate/     # 环境自检
+  │  ├─ 00-env/              # 环境自检
   │  ├─ 01-hello-chain/      # 最简 LLMChain
   │  ├─ 02-prompt-template/  # 提示词模板化
   │  ├─ 03-memory-chat/      # 带记忆对话
   │  ├─ 04-rag-qa/           # 检索增强问答
   │  ├─ 05-agent-weather/    # 获取天气智能体
   │  ├─ 06-api-deployment/   # FastAPI 封装
-  │  └─ requirements.txt
+  │  └─ pyproject.toml
   ├─ typescript/             # TypeScript 示例
-  │  ├─ src/01-hello-chain.ts
-  │  ├─ src/05-agent-weather.ts
+  │  ├─ src/
+  │  │  ├─ 01-hello-chain.ts
+  │  │  ├─ 02-prompt-template.ts
+  │  │  ├─ 03-memory-chat.ts
+  │  │  ├─ 04-rag-qa.ts
+  │  │  ├─ 05-agent-weather.ts
+  │  │  └─ 06-api-deployment.ts
   │  └─ package.json
-  ├─ docs/                   # 配图 & 运行截图
+  ├─ .env.template           # 环境变量模板
   └─ README.md
 ```
 
 ---
 
 ## 🚀 一键启动
-### Python
+
+### Python 使用 uv
 ```bash
-# 1. 创建环境
-conda env create -f python/env.yml
-conda activate lc-py
+# 1. 创建并激活虚拟环境
+cd python
+uv venv --python 3.11
+source .venv/bin/activate  # Linux/macOS
+# 或 .venv\Scripts\activate  # Windows
 
-# 2. 验证
-python python/00-env-validate/validate.py
+# 2. 安装依赖
+uv sync
 
-# 3. 运行任意示例
-jupyter lab python/01-hello-chain/
+# 3. 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，设置你的 API 密钥
+
+# 4. 验证环境
+python 00-env/simple_check.py
+
+# 5. 运行示例
+jupyter lab 01-hello-chain/
 ```
 
-### TypeScript
+### TypeScript 使用 pnpm + tsx
 ```bash
-# 1. 安装 & 构建
+# 1. 进入目录并安装依赖
 cd typescript
-pnpm i
-pnpm build
+pnpm install
 
-# 2. 运行示例
-pnpm run:ex 05-agent-weather
+# 2. 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，设置你的 API 密钥
+
+# 3. 验证环境
+pnpm check-env
+
+# 4. 运行示例
+pnpm 01-hello-chain
+pnpm 05-agent-weather
+
+# 5. 运行 API 服务
+pnpm 06-api-deployment
 ```
 
 ---
@@ -96,14 +135,25 @@ pnpm run:ex 05-agent-weather
 
 ---
 
-## 🔑 常见配置
-所有示例优先读取 `.env`：
+## 🔑 环境变量配置
 
-```yaml
-OPENAI_API_KEY=sk-xxx
-OPENAI_BASE_URL=https://api.openai.com/v1
-# 可选代理或转发
+所有示例优先读取项目根目录的 `.env` 文件：
 
+```bash
+# DeepSeek API Key - 用于大模型调用
+# 获取地址：https://platform.deepseek.com/
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+
+# Tavily Search API Key - 用于网络搜索功能
+# 获取地址：https://www.tavily.com/
+TAVILY_API_KEY=your_tavily_api_key_here
+
+# OpenWeather API Key - 用于天气查询功能
+# 获取地址：https://home.openweathermap.org/
+OPENWEATHER_API_KEY=your_openweather_api_key_here
+
+# 可选：自定义 OpenAI Base URL
+OPENAI_BASE_URL=https://api.deepseek.com/v1
 ```
 
 ---
@@ -132,5 +182,5 @@ Final Answer: 明天北京有小雨，建议带伞☔，气温约 18℃。
 
 ## 🤝 贡献指南
 1. Fork → 新建 `feat/xxx` 分支
-2. 确保 `make lint` & `make test` 通过
+2. 确保 `pnpm lint` & `pnpm test` 通过
 3. 提交 PR，并勾选「允许维护者编辑」
