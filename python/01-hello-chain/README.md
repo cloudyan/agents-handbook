@@ -26,10 +26,12 @@ uv pip install jupyterlab
 
 ```bash
 # 进入项目根目录
-cd /Volumes/data/code/github.com/cloudyan/langchain-examples
+cd python
 
 # 启动 Jupyter Lab
 jupyter lab
+# 或
+./start_jupyter.sh
 ```
 
 启动后会自动打开浏览器，或手动访问：`http://localhost:8888`
