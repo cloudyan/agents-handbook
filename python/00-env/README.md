@@ -8,13 +8,18 @@
 # 确保 Python ≥ 3.11
 python --version
 
-# 使用 uv 创建虚拟环境并安装依赖
 cd python
+# 使用 uv 创建虚拟环境并安装依赖
 uv venv --python 3.11
+# 也可以指定提示符名称
+uv venv --python 3.11 --prompt langchain_311
 # 3.11 LangChain 官方测试版本，兼容性最好
 
+# 激活虚拟环境
 source .venv/bin/activate  # Linux/macOS
 # 或 .venv\Scripts\activate  # Windows
+# 关闭
+deactivate
 
 # 同步依赖
 uv sync

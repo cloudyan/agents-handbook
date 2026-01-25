@@ -47,7 +47,7 @@ dist/
 .env.*.local
 
 # IDE
-.vscode/
+# .vscode/
 .idea/
 *.swp
 *.swo
@@ -72,3 +72,7 @@ chroma/
 tmp/
 temp/
 *.tmp
+
+.virtual_documents
+.ruff_cache
+anaconda_projects
