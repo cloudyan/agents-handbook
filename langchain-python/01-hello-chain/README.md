@@ -18,7 +18,7 @@
 pip install jupyterlab
 
 # 或使用 uv（项目推荐）
-cd python
+cd langchain-python
 uv pip install jupyterlab
 ```
 
@@ -26,7 +26,7 @@ uv pip install jupyterlab
 
 ```bash
 # 进入项目根目录
-cd python
+cd langchain-python
 
 # 启动 Jupyter Lab
 jupyter lab
@@ -39,8 +39,8 @@ jupyter lab
 #### 3. 在 Jupyter Lab 中导航
 
 ```
-langchain-examples/
-└── python/
+agents-handbook/
+└── langchain-python/
     ├── 01-hello-chain/
     │   └── hello_chain.ipynb  ← 点击这个文件
     └── ...
@@ -81,8 +81,8 @@ langchain-examples/
 ### Python 脚本
 
 ```bash
-cd python/01-hello-chain
-python hello_chain.py
+cd langchain-python
+python 01-hello-chain/hello_chain.py
 ```
 
 ## 学习目标
@@ -117,6 +117,48 @@ python hello_chain.py
 回答：[AI 生成的回答...]
 
 🎉 Hello Chain 运行成功！
+```
+
+### 语法
+
+旧版 LLMChain:
+- from langchain.chains import LLMChain
+- chain = LLMChain(llm=llm, prompt=prompt_template)
+- response = chain.run(question)
+
+新版 LCEL:
+- 使用管道操作符 |
+- chain = prompt_template | llm | StrOutputParser()
+- response = chain.invoke({"question": question})
+
+**LCEL 是 LangChain 的链式表达式语言**
+
+LCEL 优势:
+1. 更简洁直观的语法
+2. 自动支持流式输出
+3. 自动支持批处理
+4. 自动支持异步
+5. 更好的类型安全
+
+```python
+# ====== 旧用法 (已弃用) ======
+# from langchain.chains import LLMChain
+# old_chain = LLMChain(
+#     llm=llm,
+#     prompt=prompt_template,
+# )
+# print("✓ 旧版 LLMChain 创建完成")
+# old_response = old_chain.run(question)
+# print(f"\n旧版回答：{old_response}")
+
+# ====== 新用法 LCEL (推荐) ======
+print("=" * 50)
+
+chain = prompt_template | llm | StrOutputParser()
+print("✓ LCEL Chain 创建完成")
+
+response = chain.invoke({"question": question})
+print(f"\n新版回答：{response}")
 ```
 
 ## 下一步

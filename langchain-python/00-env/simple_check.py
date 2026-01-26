@@ -20,20 +20,20 @@ def main():
 
     print("\n🔑 检查环境变量:")
 
-    openai_key = os.getenv("OPENAI_API_KEY")
+    openai_key = os.getenv("OPENAI_API_KEY", "")
     if openai_key and openai_key != "your_openai_api_key_here" and len(openai_key) > 10:
         print("  ✓ OPENAI_API_KEY 已设置")
     else:
         print("  ✗ OPENAI_API_KEY 未设置或无效")
         print("  📝 请设置环境变量或创建 .env 文件")
 
-    base_url = os.getenv("OPENAI_BASE_URL")
+    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
     if base_url:
         print(f"  ✓ OPENAI_BASE_URL: {base_url}")
     else:
         print("  ℹ OPENAI_BASE_URL 使用默认值")
 
-    model_name = os.getenv("MODEL_NAME")
+    model_name = os.getenv("MODEL_NAME", "")
     if model_name:
         print(f"  ✓ MODEL_NAME: {model_name}")
     else:
@@ -76,12 +76,12 @@ def main():
 
     if missing:
         print("❌ 缺少依赖包，请运行:")
-        print("   cd python")
+        print("   cd langchain-python")
         print("   uv sync")
         return 1
 
     print("🚀 环境检查通过！可以运行示例:")
-    print("   cd python")
+    print("   cd langchain-python")
     print("   jupyter lab 01-hello-chain/")
 
     return 0

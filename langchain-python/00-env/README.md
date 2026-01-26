@@ -8,7 +8,7 @@
 # 确保 Python ≥ 3.11
 python --version
 
-cd python
+cd langchain-python
 # 使用 uv 创建虚拟环境并安装依赖
 uv venv --python 3.11
 # 也可以指定提示符名称
@@ -23,6 +23,9 @@ deactivate
 
 # 同步依赖
 uv sync
+# 如果项目和缓存目录不同，可以修改，然后同步依赖更快（用 reflink）
+uv cache dir
+echo 'export UV_CACHE_DIR="/Volumes/data/.cache/uv"' >> ~/.zshrc
 
 # 配置环境变量
 cp .env.example .env

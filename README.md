@@ -1,16 +1,65 @@
-# 🦜🔗 LangChain-Examples（Python & TypeScript）
+# 🦜🔗 Agents Handbook（Python & TypeScript）
 
-- - https://docs.langchain.com/oss/python/langchain/overview
-
-「一份同时覆盖 Python 与 TypeScript 的 LangChain v1.x 示例集合，帮助你用最短时间上手大模型应用开发。」
+「一份多框架 AI Agent 开发实战手册，涵盖 LangChain、ai-sdk、claude-agent-sdk 等主流框架，帮助你用最短时间掌握大模型应用开发。」
 
 ---
 
 ## 📌 项目定位
-- 100% 基于 **LangChain 1.x**（Python ≥3.11，JS/TS）
+- 覆盖多个主流 AI 开发框架：LangChain、ai-sdk、claude-agent-sdk
 - 一份代码，两份体验：同场景分别给出 Python 与 TypeScript 实现
 - 从「Hello Chain」→「可部署智能体」逐步递进，每个示例均可在笔记本或容器里一键跑通
-- 统一环境、统一配置、统一提示词，方便横向对比两种语言差异
+- 统一环境、统一配置、统一提示词，方便横向对比不同框架和语言的差异
+- **支持 LangChain 1.0 新 API**：提供新旧两种实现方式，方便学习和迁移
+
+---
+
+## 🆕 LangChain 1.0 更新
+
+LangChain 1.0 引入了全新的 Agent 框架，本项目同时提供新旧两种实现：
+
+### 主要变化
+
+| 维度 | 旧版 API | 新版 API (LangChain 1.0) |
+|------|---------|-------------------------|
+| **创建方式** | 多个分支函数 (`create_tool_calling_agent`, `create_react_agent` 等) | 统一的 `create_agent()` |
+| **底层架构** | LangChain 传统执行器 | LangGraph 状态图 |
+| **消息格式** | `{"input": "...", "agent_scratchpad": ...}` | `{"messages": [{"role": "user", "content": "..."}]}` |
+| **记忆管理** | 手动管理 (`BufferWindowMemory` 等) | 内置 `checkpointer` 机制 |
+| **代码量** | 较多 | 减少 40%+ |
+
+### 代码对比
+
+```python
+# ❌ 旧版
+from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "你是一个天气助手..."),
+    ("user", "{input}"),
+    MessagesPlaceholder(variable_name="agent_scratchpad"),
+])
+
+agent = create_tool_calling_agent(llm, tools, prompt)
+executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+result = executor.invoke({"input": "查询北京天气"})
+
+# ✅ 新版 (LangChain 1.0)
+from langchain.agents import create_agent
+
+agent = create_agent(
+    model=llm,
+    tools=tools,
+    system_prompt="你是一个天气助手..."
+)
+result = agent.invoke({"messages": [{"role": "user", "content": "查询北京天气"}]})
+```
+
+### 使用建议
+
+- **学习 Agent 原理**：运行旧版示例 (`agent_weather.py`, `advanced_agents.py`)
+- **生产环境开发**：使用新版示例 (`agent_weather_v2.py`, `advanced_agents_v2.py`)
+- **多 Agent 系统**：新版基于 LangGraph，功能更强大 (`multi_agent_system_v2.py`)
 
 ---
 
@@ -29,21 +78,23 @@
 
 ## 🧱 技术栈
 
-| 类别 | Python 方案 | TypeScript 方案 |
-|---|---|---|
-| 环境管理 | uv | nvm + pnpm + tsx |
-| 依赖文件 | pyproject.toml | package.json |
-| 交互开发 | Jupyter Lab | VSCode 调试 |
-| 主框架 | langchain    | langchain   |
-| LLM 调用 | openai、langchain-openai | openai、langchain-openai |
-| 向量库 | Chroma、FAISS | chromadb |
-| 部署 | FastAPI + Uvicorn | Express + tsx |
-| 代码风格 | black / ruff | prettier / eslint |
+| 类别 | LangChain Python | LangChain TypeScript | ai-sdk | claude-agent-sdk |
+|---|---|---|---|---|
+| 环境管理 | uv | nvm + pnpm + tsx | pnpm | pnpm |
+| 依赖文件 | pyproject.toml | package.json | package.json | package.json |
+| 交互开发 | Jupyter Lab | VSCode 调试 | VSCode 调试 | VSCode 调试 |
+| 主框架 | langchain | langchain | ai-sdk | claude-agent-sdk |
+| LLM 调用 | openai、langchain-openai | openai、langchain-openai | openai | anthropic |
+| 向量库 | Chroma、FAISS | chromadb | - | - |
+| 部署 | FastAPI + Uvicorn | Express + tsx | Next.js | Next.js |
+| 代码风格 | black / ruff | prettier / eslint | prettier / eslint | prettier / eslint |int |
 
 
 - Python 环境管理 [uv](https://github.com/astral-sh/uv)
 - Python 交互式开发环境 [Jupyter Lab](https://jupyterlab.readthedocs.io/en/stable/getting_started/installation.html)
 - 大模型应用开发框架 [LangChain](https://docs.langchain.com/oss/python/langchain/overview)
+- AI 开发工具包 [ai-sdk](https://sdk.vercel.ai/)
+- Claude Agent SDK [claude-agent-sdk](https://github.com/anthropics/claude-agent-sdk)
 - [OpenAI Python SDK](https://github.com/openai/openai-python?tab=readme-ov-file#installation)
 
 ---
@@ -51,30 +102,19 @@
 ## 🗂️ 目录结构
 
 ```bash
-langchain-examples/
-  ├─ python/                 # Python 示例
+agents-handbook/
+  ├─ langchain-python/       # LangChain Python 示例
   │  ├─ 00-env/              # 环境自检
   │  ├─ 01-hello-chain/      # 最简 LLMChain
-  │  ├─ 02-prompt-template/  # 提示词模板化
-  │  ├─ 03-memory-chat/      # 带记忆对话
-  │  ├─ 04-rag-qa/           # 检索增强问答
-  │  ├─ 05-agent-weather/    # 获取天气智能体
-  │  ├─ 06-api-deployment/   # FastAPI 封装
-  │  ├─ 07-advanced-agents/  # 高级 Agent 模式
-  │  ├─ 08-structured-output/ # 结构化输出
-  │  ├─ 09-multi-agent/      # 多智能体协作
-  │  ├─ 10-streaming-chat/   # 流式输出 + ChatUI
-  │  ├─ 11-production-tracing/ # 生产级追踪
+  │  ├─ ...
   │  └─ pyproject.toml
-  ├─ typescript/             # TypeScript 示例
+  ├─ langchain-typescript/   # LangChain TypeScript 示例
   │  ├─ src/
   │  │  ├─ 01-hello-chain.ts
-  │  │  ├─ 02-prompt-template.ts
-  │  │  ├─ 03-memory-chat.ts
-  │  │  ├─ 04-rag-qa.ts
-  │  │  ├─ 05-agent-weather.ts
-  │  │  └─ 06-api-deployment.ts
+  │  │  └─ ...
   │  └─ package.json
+  ├─ ai-sdk/                 # ai-sdk 示例（待添加）
+  ├─ claude-agent-sdk/       # claude-agent-sdk 示例（待添加）
   ├─ .env.example           # 环境变量模板
   └─ README.md
 ```
@@ -83,10 +123,10 @@ langchain-examples/
 
 ## 🚀 一键启动
 
-### Python 使用 uv
+### LangChain Python 使用 uv
 ```bash
 # 1. 创建并激活虚拟环境
-cd python
+cd langchain-python
 uv venv --python 3.11
 source .venv/bin/activate  # Linux/macOS
 # 或 .venv\Scripts\activate  # Windows
@@ -102,13 +142,24 @@ cp .env.example .env
 python 00-env/simple_check.py
 
 # 5. 运行示例
+# 旧版 API (学习原理)
+python 05-agent-weather/agent_weather.py
+python 07-advanced-agents/advanced_agents.py
+python 09-multi-agent/multi_agent_system.py
+
+# 新版 API (LangChain 1.0，推荐)
+python 05-agent-weather/agent_weather_v2.py
+python 07-advanced-agents/advanced_agents_v2.py
+python 09-multi-agent/multi_agent_system_v2.py
+
+# 或使用 Jupyter Lab
 jupyter lab 01-hello-chain/
 ```
 
-### TypeScript 使用 pnpm + tsx
+### LangChain TypeScript 使用 pnpm + tsx
 ```bash
 # 1. 进入目录并安装依赖
-cd typescript
+cd langchain-typescript
 pnpm install
 
 # 2. 配置环境变量

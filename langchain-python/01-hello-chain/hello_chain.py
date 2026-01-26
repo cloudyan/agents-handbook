@@ -15,8 +15,8 @@ def main():
     print("🦜🔗 01 - Hello Chain")
     print("=" * 40)
 
-    api_key = os.getenv("OPENAI_API_KEY")
-    base_url = os.getenv("OPENAI_BASE_URL")
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
     model_name = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
 
     if not api_key:
@@ -48,14 +48,28 @@ def main():
 """)
         print("✓ 提示词模板创建完成")
 
-        chain = prompt_template | llm | StrOutputParser()
-        print("✓ LCEL Chain 创建完成")
-
         question = "什么是 LangChain？请简单介绍一下。"
         print(f"\n问题：{question}")
 
+        # ====== 旧用法 (已弃用) ======
+        # from langchain.chains import LLMChain
+        # old_chain = LLMChain(
+        #     llm=llm,
+        #     prompt=prompt_template,
+        # )
+        # print("✓ 旧版 LLMChain 创建完成")
+        # old_response = old_chain.run(question)
+        # print(f"\n旧版回答：{old_response}")
+
+        # ====== 新用法 LCEL (推荐) ======
+        print("=" * 50)
+
+        chain = prompt_template | llm | StrOutputParser()
+        print("✓ LCEL Chain 创建完成")
+
         response = chain.invoke({"question": question})
-        print(f"\n回答：{response}")
+        print(f"\n新版回答：{response}")
+
 
         print("\n🎉 Hello Chain 运行成功！")
 
