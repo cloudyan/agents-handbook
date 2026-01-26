@@ -1,38 +1,20 @@
-import dotenv from "dotenv";
-import { ChatOpenAI } from "@langchain/openai";
-import { Tool } from "@langchain/core/tools";
-import { z } from "zod";
-import { AgentExecutor, createReactAgent } from "langchain/agents";
-import { pull } from "langchain/hub";
 import axios from "axios";
+import { tool } from "langchain";
+import * as z from "zod";
+import { createModelClient } from "./clients/model";
 
-// 加载环境变量，覆盖已存在的变量
-dotenv.config({ override: true });
-
-const apiKey = process.env.OPENAI_API_KEY;
-const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-const modelName = process.env.MODEL_NAME || "gpt-3.5-turbo";
-const weatherApiKey = process.env.OPENWEATHER_API_KEY;
-
-class WeatherTool extends Tool {
-  name = "get_weather";
-  description = "获取指定城市的天气预报，包括温度、天气状况和降雨概率。输入应该是城市的英文名称。";
-
-  schema = z.object({
-    location: z.string().describe("城市英文名称，例如 Beijing, Shanghai"),
-    days: z.number().default(1).describe("预报天数，默认为1天"),
-  });
-
-  async _call(input: z.infer<typeof this.schema>): Promise<string> {
+const getWeather = tool(
+  async (input) => {
     try {
       const { location, days } = input;
+      const weatherApiKeyValue = process.env.OPENWEATHER_API_KEY;
 
-      if (!weatherApiKey) {
+      if (!weatherApiKeyValue) {
         throw new Error("OPENWEATHER_API_KEY 环境变量未设置");
       }
 
       const response = await axios.get(
-        `https://api.openweathermap.org/data/2.5/forecast?q=${location}&appid=${weatherApiKey}&units=metric&cnt=${days * 8}`
+        `https://api.openweathermap.org/data/2.5/forecast?q=${location}&appid=${weatherApiKeyValue}&units=metric&cnt=${days * 8}`
       );
 
       const data = response.data;
@@ -51,40 +33,21 @@ class WeatherTool extends Tool {
       }
       return "获取天气失败";
     }
+  },
+  {
+    name: "get_weather",
+    description: "获取指定城市的天气预报，包括温度、天气状况和降雨概率。输入应该是城市的英文名称。",
+    schema: z.object({
+      location: z.string().describe("城市英文名称，例如 Beijing, Shanghai"),
+      days: z.number().default(1).describe("预报天数，默认为1天"),
+    }),
   }
-}
+);
 
+// 天气智能体
 async function weatherAgent() {
-  console.log("🌤️  天气智能体 - LangChain TypeScript 示例");
-  console.log("=".repeat(50));
-
-  if (!apiKey) {
-    console.error("❌ 请设置 OPENAI_API_KEY 环境变量");
-    process.exit(1);
-  }
-
-  const llm = new ChatOpenAI({
-    modelName,
-    openAIApiKey: apiKey,
-    configuration: { baseURL },
-    temperature: 0,
-  });
-
-  const tools = [new WeatherTool()];
-
-  const prompt = await pull("hwchase17/react");
-
-  const agent = await createReactAgent({
-    llm,
-    tools,
-    prompt,
-  });
-
-  const agentExecutor = new AgentExecutor({
-    agent,
-    tools,
-    verbose: true,
-  });
+  const model = createModelClient();
+  const modelWithTools = model.bindTools([getWeather]);
 
   const questions = [
     "北京明天的天气怎么样？",
@@ -92,15 +55,38 @@ async function weatherAgent() {
   ];
 
   for (const question of questions) {
-    console.log(`\n📤 用户问题: ${question}`);
+    console.log(`\n用户问题: ${question}`);
     console.log("-".repeat(50));
 
-    const result = await agentExecutor.invoke({
-      input: question,
-    });
+    const response = await modelWithTools.invoke(question);
+    const toolCalls = response.tool_calls || [];
 
-    console.log("\n📥 最终回答:");
-    console.log(`  ${result.output}`);
+    if (toolCalls.length > 0) {
+      for (const tool_call of toolCalls) {
+        console.log(`调用工具: ${tool_call.name}`);
+        console.log(`参数: ${JSON.stringify(tool_call.args)}`);
+
+        const toolResult = await getWeather.invoke(tool_call.args as any);
+        console.log(`工具结果: ${toolResult}`);
+
+        const finalResponse = await modelWithTools.invoke([
+          { role: "user", content: question },
+          response,
+          {
+            role: "tool",
+            tool_call_id: tool_call.id,
+            content: toolResult as any,
+          },
+        ]);
+
+        console.log("\n最终回答:");
+        console.log(`  ${finalResponse.content}`);
+      }
+    } else {
+      console.log("最终回答:");
+      console.log(`  ${response.content}`);
+    }
+
     console.log("=".repeat(50));
   }
 }

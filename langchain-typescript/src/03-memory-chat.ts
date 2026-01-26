@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
-import { ChatOpenAI } from "@langchain/openai";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { BaseMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
+import { createModelClient } from "./clients/model";
 
 // 加载环境变量，覆盖已存在的变量
 dotenv.config({ override: true });
@@ -30,25 +30,9 @@ class BufferMemory {
   }
 }
 
+// 💬 带记忆的对话
 async function memoryChat() {
-  console.log("💬 带记忆的对话 - LangChain TypeScript 示例");
-  console.log("=".repeat(50));
-
-  const apiKey = process.env.OPENAI_API_KEY;
-  const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-  const modelName = process.env.MODEL_NAME || "gpt-3.5-turbo";
-
-  if (!apiKey) {
-    console.error("❌ 请设置 OPENAI_API_KEY 环境变量");
-    process.exit(1);
-  }
-
-  const llm = new ChatOpenAI({
-    modelName,
-    openAIApiKey: apiKey,
-    configuration: { baseURL },
-    temperature: 0.7,
-  });
+  const model = createModelClient();
 
   const memory = new BufferMemory(5);
 
@@ -58,10 +42,10 @@ async function memoryChat() {
     ["human", "{input}"],
   ]);
 
-  const chain = prompt.pipe(llm);
+  const chain = prompt.pipe(model);
 
   async function chat(userInput: string): Promise<void> {
-    console.log(`\n📤 你: ${userInput}`);
+    console.log(`\n你: ${userInput}`);
 
     const messages = memory.getMessages();
     const result = await chain.invoke({
@@ -70,7 +54,7 @@ async function memoryChat() {
     });
 
     const response = result.content as string;
-    console.log(`📥 助手: ${response}`);
+    console.log(`助手: ${response}`);
 
     memory.addMessage(new HumanMessage(userInput));
     memory.addMessage(new AIMessage(response));
@@ -82,7 +66,7 @@ async function memoryChat() {
   await chat("我多大了？");
 
   console.log("\n" + "=".repeat(50));
-  console.log("✅ 对话完成！助手记住了你的信息。");
+  console.log("对话完成！助手记住了你的信息。");
 }
 
 memoryChat().catch(console.error);

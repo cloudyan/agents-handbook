@@ -52,6 +52,17 @@ pnpm 05-agent-weather
 pnpm 06-api-deployment
 ```
 
+### 语法
+
+旧用法:
+- 直接调用 llm.invoke()
+- 需要手动管理消息格式
+
+新用法 LCEL:
+- 使用 .pipe() 链式调用
+- 自动处理消息格式
+- 支持流式输出、批处理、异步
+
 ## 可用命令
 
 ```bash
@@ -76,17 +87,50 @@ pnpm format
 ```
 langchain-typescript/
 ├── src/
-│   ├── 01-hello-chain.ts       # 基础链
-│   ├── 02-prompt-template.ts   # 提示词模板
-│   ├── 03-memory-chat.ts       # 带记忆的对话
-│   ├── 04-rag-qa.ts            # 检索增强问答
-│   ├── 05-agent-weather.ts     # 天气智能体
+│   ├── 01-hello-chain.ts       # 基础链 (LCEL)
+│   ├── 02-prompt-template.ts   # 提示词模板 (LCEL)
+│   ├── 03-memory-chat.ts       # 带记忆的对话 (LCEL)
+│   ├── 04-rag-qa.ts            # 检索增强问答 (LCEL)
+│   ├── 05-agent-weather.ts     # 天气智能体 (旧版)
+│   ├── 05-agent-weather-v2.ts  # 天气智能体 (简化版)
 │   ├── 06-api-deployment.ts    # API 部署
+│   ├── 07-advanced-agents.ts   # 高级智能体 (旧版)
+│   ├── 07-advanced-agents-v2.ts # 高级智能体 (简化版)
 │   └── check-env.ts            # 环境验证
 ├── package.json                # 项目配置
 ├── tsconfig.json               # TypeScript 配置
 └── .env.example                # 环境变量模板
 ```
+
+## 实现说明
+
+### LCEL (LangChain Expression Language)
+
+TypeScript 版本的 LCEL 使用 `.pipe()` 方法链式调用：
+
+```typescript
+// LCEL 示例
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { StringOutputParser } from "@langchain/core/output_parsers";
+
+const prompt = ChatPromptTemplate.fromTemplate("问题：{question}");
+const chain = prompt.pipe(llm).pipe(new StringOutputParser());
+const result = await chain.invoke({ question: "什么是 LangChain？" });
+```
+
+### Agent 实现
+
+TypeScript 版本目前使用 `createReactAgent`（LangChain 传统方式）：
+
+```typescript
+import { createReactAgent, AgentExecutor } from "langchain/agents";
+
+const agent = await createReactAgent({ llm, tools, prompt });
+const agentExecutor = new AgentExecutor({ agent, tools, verbose: true });
+const result = await agentExecutor.invoke({ input: "..." });
+```
+
+**注意**: TypeScript 版本的 `create_agent` API 尚未完全稳定，建议使用 `createReactAgent` 作为替代方案。
 
 ## 技术栈
 

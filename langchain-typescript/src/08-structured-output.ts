@@ -1,20 +1,36 @@
-import dotenv from "dotenv";
-import { ChatOpenAI } from "@langchain/openai";
+
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { StructuredOutputParser } from "@langchain/core/output_parsers";
 import { z } from "zod";
+import { createModelClient } from "./clients/model";
 
-dotenv.config({ override: true });
+const model = createModelClient();
 
-const apiKey = process.env.OPENAI_API_KEY;
-const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-const modelName = process.env.MODEL_NAME || "gpt-3.5-turbo";
+// 解决核心问题：大模型输出不可控，难以直接集成到程序中
+// 核心目标：实现可靠的结构化输出，确保 LLM 生成的数据符合预期格式和类型
+// 关键技术点：
+// 1. 使用 Zod 定义数据模型和验证规则
+// 2. 利用 StructuredOutputParser 强制 LLM 输出符合定义的 schema
+// 3. 结合 ChatPromptTemplate 设计提示词，指导 LLM 生成结构化数据
+//
+// 1. 结构化输出控制
+//    * 强制 LLM 输出符合 Zod schema 的 JSON
+//    * 通过 StructuredOutputParser 自动解析和验证
+// 2. 类型安全
+//    * 使用 Zod 定义数据模型
+//    * TypeScript 类型推断（z.infer）
+//    * 编译期 + 运行时双重验证
+// 3. 复杂数据支持
+//    * 基础类型、嵌套对象、枚举类型、可选字段
+// 4. 覆盖的实战场景
+//    * 用户信息提取
+//    * 企业信息提取
+//    * 事件抽取
+//    * 产品信息结构化
+//    * 批量处理与错误处理
 
-if (!apiKey) {
-  console.error("❌ 请设置 OPENAI_API_KEY 环境变量");
-  process.exit(1);
-}
 
+// 示例 1: 基础信息提取
 async function example1BasicExtraction() {
   console.log("\n" + "=".repeat(60));
   console.log("示例 1: 基础信息提取");
@@ -29,13 +45,6 @@ async function example1BasicExtraction() {
 
   type UserInfo = z.infer<typeof UserInfoSchema>;
 
-  const llm = new ChatOpenAI({
-    modelName,
-    openAIApiKey: apiKey,
-    configuration: { baseURL },
-    temperature: 0,
-  });
-
   const parser = StructuredOutputParser.fromZodSchema(UserInfoSchema);
 
   const prompt = ChatPromptTemplate.fromMessages([
@@ -49,7 +58,7 @@ async function example1BasicExtraction() {
     ],
   ]);
 
-  const chain = prompt.pipe(llm).pipe(parser);
+  const chain = prompt.pipe(model).pipe(parser);
 
   const testText = `
     我叫李明，今年28岁，邮箱是liming@example.com。
@@ -70,6 +79,7 @@ async function example1BasicExtraction() {
   }
 }
 
+
 async function example2NestedModels() {
   console.log("\n" + "=".repeat(60));
   console.log("示例 2: 嵌套模型");
@@ -89,13 +99,6 @@ async function example2NestedModels() {
 
   type Company = z.infer<typeof CompanySchema>;
 
-  const llm = new ChatOpenAI({
-    modelName,
-    openAIApiKey: apiKey,
-    configuration: { baseURL },
-    temperature: 0,
-  });
-
   const parser = StructuredOutputParser.fromZodSchema(CompanySchema);
 
   const prompt = ChatPromptTemplate.fromMessages([
@@ -109,7 +112,7 @@ async function example2NestedModels() {
     ],
   ]);
 
-  const chain = prompt.pipe(llm).pipe(parser);
+  const chain = prompt.pipe(model).pipe(parser);
 
   const testText = `
     科技创新有限公司是一家专注于人工智能的公司。
@@ -130,6 +133,7 @@ async function example2NestedModels() {
   }
 }
 
+
 async function example3EventExtraction() {
   console.log("\n" + "=".repeat(60));
   console.log("示例 3: 事件抽取");
@@ -145,13 +149,6 @@ async function example3EventExtraction() {
 
   type Event = z.infer<typeof EventSchema>;
 
-  const llm = new ChatOpenAI({
-    modelName,
-    openAIApiKey: apiKey,
-    configuration: { baseURL },
-    temperature: 0,
-  });
-
   const parser = StructuredOutputParser.fromZodSchema(EventSchema);
 
   const prompt = ChatPromptTemplate.fromMessages([
@@ -165,7 +162,7 @@ async function example3EventExtraction() {
     ],
   ]);
 
-  const chain = prompt.pipe(llm).pipe(parser);
+  const chain = prompt.pipe(model).pipe(parser);
 
   const testText = `
     2024年3月15日，在北京国际会议中心举办了人工智能技术峰会。
@@ -187,6 +184,7 @@ async function example3EventExtraction() {
   }
 }
 
+
 async function example4ProductExtraction() {
   console.log("\n" + "=".repeat(60));
   console.log("示例 4: 产品信息提取");
@@ -204,13 +202,6 @@ async function example4ProductExtraction() {
 
   type Product = z.infer<typeof ProductSchema>;
 
-  const llm = new ChatOpenAI({
-    modelName,
-    openAIApiKey: apiKey,
-    configuration: { baseURL },
-    temperature: 0,
-  });
-
   const parser = StructuredOutputParser.fromZodSchema(ProductSchema);
 
   const prompt = ChatPromptTemplate.fromMessages([
@@ -224,7 +215,7 @@ async function example4ProductExtraction() {
     ],
   ]);
 
-  const chain = prompt.pipe(llm).pipe(parser);
+  const chain = prompt.pipe(model).pipe(parser);
 
   const testText = `
     智能手机 X200，售价5999元。
@@ -246,6 +237,7 @@ async function example4ProductExtraction() {
   }
 }
 
+
 async function example5BatchExtraction() {
   console.log("\n" + "=".repeat(60));
   console.log("示例 5: 批量提取");
@@ -258,12 +250,6 @@ async function example5BatchExtraction() {
 
   type SimpleInfo = z.infer<typeof SimpleInfoSchema>;
 
-  const llm = new ChatOpenAI({
-    modelName,
-    openAIApiKey: apiKey,
-    configuration: { baseURL },
-    temperature: 0,
-  });
 
   const parser = StructuredOutputParser.fromZodSchema(SimpleInfoSchema);
 
@@ -278,7 +264,7 @@ async function example5BatchExtraction() {
     ],
   ]);
 
-  const chain = prompt.pipe(llm).pipe(parser);
+  const chain = prompt.pipe(model).pipe(parser);
 
   const testTexts = [
     "产品A价格100元",
@@ -305,8 +291,10 @@ async function example5BatchExtraction() {
   console.log(`\n成功率: ${successRate.toFixed(1)}% (${results.filter((r) => r !== null).length}/${results.length})`);
 }
 
+
+
 async function main() {
-  console.log("🦜🔗 08 - 结构化输出");
+  console.log("08 - 结构化输出");
   console.log("=".repeat(60));
 
   try {
@@ -317,7 +305,7 @@ async function main() {
     await example5BatchExtraction();
 
     console.log("\n" + "=".repeat(60));
-    console.log("🎉 结构化输出示例运行完成！");
+    console.log("结构化输出示例运行完成！");
     console.log("=".repeat(60));
     console.log("\n关键要点:");
     console.log("1. 使用 Zod 定义数据模型");
@@ -326,7 +314,7 @@ async function main() {
     console.log("4. 处理嵌套模型和复杂类型");
     console.log("5. 批量处理和错误处理");
   } catch (e) {
-    console.log(`❌ 运行错误：${e}`);
+    console.log(`运行错误：${e}`);
     process.exit(1);
   }
 }

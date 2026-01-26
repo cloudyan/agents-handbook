@@ -17,7 +17,7 @@ const modelName = process.env.MODEL_NAME || "gpt-3.5-turbo";
 const langchainApiKey = process.env.LANGCHAIN_API_KEY;
 
 if (!apiKey) {
-  console.error("❌ 请设置 OPENAI_API_KEY 环境变量");
+  console.error("请设置 OPENAI_API_KEY 环境变量");
   process.exit(1);
 }
 
@@ -346,7 +346,7 @@ async function example4PerformanceComparison(
 }
 
 async function main() {
-  console.log("🦜🔗 11 - 生产级追踪");
+  console.log("11 - 生产级追踪");
   console.log("=".repeat(60));
 
   const langsmithEnabled = setupLangsmith();
@@ -375,9 +375,9 @@ async function main() {
       console.log("  https://smith.langchain.com/");
     }
 
-    console.log("\n🎉 生产级追踪示例运行完成！");
+    console.log("\n生产级追踪示例运行完成！");
   } catch (e) {
-    console.log(`❌ 运行错误：${e}`);
+    console.log(`运行错误：${e}`);
     process.exit(1);
   }
 }

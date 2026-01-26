@@ -53,8 +53,8 @@ function checkEnv() {
 
   console.log("\n" + "=".repeat(50));
 
-  if (hasError) {
-    console.log("❌ 环境配置不完整，请检查环境变量");
+if (hasError) {
+    console.log("环境配置不完整，请检查环境变量");
     process.exit(1);
   }
 

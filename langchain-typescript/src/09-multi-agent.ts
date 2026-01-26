@@ -1,24 +1,13 @@
-import dotenv from "dotenv";
 import { ChatOpenAI } from "@langchain/openai";
 import { Tool } from "@langchain/core/tools";
-import { z } from "zod";
+import { createModelClient } from "./clients/model";
+import { createSearchTool } from "./clients/tavily";
 
-dotenv.config({ override: true });
-
-const apiKey = process.env.OPENAI_API_KEY;
-const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-const modelName = process.env.MODEL_NAME || "gpt-3.5-turbo";
-
-if (!apiKey) {
-  console.error("❌ 请设置 OPENAI_API_KEY 环境变量");
-  process.exit(1);
-}
 
 interface AgentMessage {
   sender: string;
   receiver: string;
   content: string;
-  context: Record<string, unknown>;
 }
 
 class BaseAgent {
@@ -44,12 +33,11 @@ class BaseAgent {
     throw new Error("子类必须实现 processMessage 方法");
   }
 
-  sendMessage(receiver: string, content: string, context: Record<string, unknown> = {}): AgentMessage {
+  sendMessage(receiver: string, content: string): AgentMessage {
     return {
       sender: this.name,
       receiver,
       content,
-      context,
     };
   }
 }
@@ -61,7 +49,6 @@ class ResearcherAgent extends BaseAgent {
 
   async processMessage(message: AgentMessage): Promise<AgentMessage | null> {
     const task = message.content;
-    const context = message.context;
 
     console.log(`\n[${this.name}] 接到任务：${task}`);
 
@@ -86,27 +73,30 @@ class ResearcherAgent extends BaseAgent {
     const researchReport = response.content as string;
 
     console.log(`[${this.name}] 研究完成`);
+    console.log(`\n${"─".repeat(60)}`);
+    console.log(`📚 [${this.name}] 研究报告：`);
+    console.log("─".repeat(60));
+    console.log(researchReport);
+    console.log("─".repeat(60));
+    console.log("\n".repeat(3));
 
     return this.sendMessage(
       message.sender,
-      `研究报告：\n${researchReport}`,
-      { type: "research_result", original_task: task }
+      `研究报告：\n${researchReport}`
     );
   }
 }
 
 class CoderAgent extends BaseAgent {
-  constructor(llm: ChatOpenAI) {
-    super("Coder", "代码编写和调试专家", llm);
+  constructor(model: ChatOpenAI) {
+    super("Coder", "代码编写和调试专家", model);
   }
 
   async processMessage(message: AgentMessage): Promise<AgentMessage | null> {
     const task = message.content;
-    const context = message.context;
 
     console.log(`\n[${this.name}] 接到任务：${task}`);
 
-    const researchContext = (context.research_result as string) || "";
     const codingPrompt = `你是一个专业的程序员，擅长：
 1. 编写高质量的代码
 2. 遵循最佳实践
@@ -114,8 +104,6 @@ class CoderAgent extends BaseAgent {
 4. 优化代码性能
 
 任务：${task}
-
-${researchContext ? `研究背景：\n${researchContext}\n` : ""}
 
 请提供：
 1. 完整的代码实现
@@ -126,11 +114,16 @@ ${researchContext ? `研究背景：\n${researchContext}\n` : ""}
     const codeContent = response.content as string;
 
     console.log(`[${this.name}] 代码编写完成`);
+    console.log(`\n${"─".repeat(60)}`);
+    console.log(`💻 [${this.name}] 代码实现：`);
+    console.log("─".repeat(60));
+    console.log(codeContent);
+    console.log("─".repeat(60));
+    console.log("\n".repeat(3));
 
     return this.sendMessage(
       message.sender,
-      `代码实现：\n${codeContent}`,
-      { type: "code_result", original_task: task }
+      `代码实现：\n${codeContent}`
     );
   }
 }
@@ -141,12 +134,9 @@ class ReviewerAgent extends BaseAgent {
   }
 
   async processMessage(message: AgentMessage): Promise<AgentMessage | null> {
-    const task = message.content;
-    const context = message.context;
+    const codeContent = message.content;
 
     console.log(`\n[${this.name}] 接到任务：审查代码`);
-
-    const codeContent = (context.code_result as string) || task;
 
     const reviewPrompt = `你是一个专业的代码审查员，擅长：
 1. 检查代码质量
@@ -154,7 +144,7 @@ class ReviewerAgent extends BaseAgent {
 3. 提供改进建议
 4. 评估代码性能
 
-请审查以下代码：
+请审查以下内容：
 ${codeContent}
 
 审查要点：
@@ -170,11 +160,16 @@ ${codeContent}
     const reviewReport = response.content as string;
 
     console.log(`[${this.name}] 审查完成`);
+    console.log(`\n${"─".repeat(60)}`);
+    console.log(`🔍 [${this.name}] 审查报告：`);
+    console.log("─".repeat(60));
+    console.log(reviewReport);
+    console.log("─".repeat(60));
+    console.log("\n".repeat(3));
 
     return this.sendMessage(
       message.sender,
-      `审查报告：\n${reviewReport}`,
-      { type: "review_result", original_task: task }
+      `审查报告：\n${reviewReport}`
     );
   }
 }
@@ -227,39 +222,40 @@ class SupervisorAgent {
   private async coordinateCodeDevelopment(task: string): Promise<string> {
     const results: string[] = [];
 
+    let researchReport = "";
     if (this.agents.has("Researcher")) {
       const researcher = this.agents.get("Researcher")!;
-      const researchMessage = researcher.sendMessage("Researcher", `研究如何${task}`);
+      const researchMessage = researcher.sendMessage("Supervisor", `研究如何${task}`);
       const researchResponse = await researcher.receiveMessage(researchMessage);
       if (researchResponse) {
-        results.push(researchResponse.content);
+        researchReport = researchResponse.content;
+        results.push(researchReport);
+        console.log(`\n[Supervisor] 收到研究报告`);
       }
     }
 
+    let codeContent = "";
     if (this.agents.has("Coder")) {
       const coder = this.agents.get("Coder")!;
-      const researchContext = results[results.length - 1] || "";
-      const codeMessage = coder.sendMessage(
-        "Coder",
-        `实现${task}`,
-        { research_result: researchContext }
-      );
+      const codeTask = researchReport
+        ? `根据以下研究报告编写代码：\n\n${researchReport}\n\n任务：${task}`
+        : task;
+      const codeMessage = coder.sendMessage("Supervisor", codeTask);
       const codeResponse = await coder.receiveMessage(codeMessage);
       if (codeResponse) {
-        results.push(codeResponse.content);
+        codeContent = codeResponse.content;
+        results.push(codeContent);
+        console.log(`\n[Supervisor] 收到代码实现 (${codeContent.length} 字符)`);
       }
     }
 
-    if (this.agents.has("Reviewer") && results.length >= 2) {
+    if (this.agents.has("Reviewer") && codeContent) {
       const reviewer = this.agents.get("Reviewer")!;
-      const reviewMessage = reviewer.sendMessage(
-        "Reviewer",
-        "审查代码",
-        { code_result: results[results.length - 1] }
-      );
+      const reviewMessage = reviewer.sendMessage("Supervisor", codeContent);
       const reviewResponse = await reviewer.receiveMessage(reviewMessage);
       if (reviewResponse) {
         results.push(reviewResponse.content);
+        console.log(`\n[Supervisor] 收到审查报告`);
       }
     }
 
@@ -272,10 +268,11 @@ class SupervisorAgent {
 
     if (this.agents.has("Researcher")) {
       const researcher = this.agents.get("Researcher")!;
-      const researchMessage = researcher.sendMessage("Researcher", task);
+      const researchMessage = researcher.sendMessage("Supervisor", task);
       const researchResponse = await researcher.receiveMessage(researchMessage);
       if (researchResponse) {
         results.push(researchResponse.content);
+        console.log(`\n[Supervisor] 收到研究结果`);
       }
     }
 
@@ -286,9 +283,10 @@ class SupervisorAgent {
   private async coordinateGeneralTask(task: string): Promise<string> {
     if (this.agents.has("Researcher")) {
       const researcher = this.agents.get("Researcher")!;
-      const researchMessage = researcher.sendMessage("Researcher", task);
+      const researchMessage = researcher.sendMessage("Supervisor", task);
       const researchResponse = await researcher.receiveMessage(researchMessage);
       if (researchResponse) {
+        console.log(`\n[Supervisor] 收到研究结果`);
         return researchResponse.content;
       }
     }
@@ -318,39 +316,12 @@ ${results.map((r, i) => `${i + 1}. ${r.slice(0, 300)}...`).join("\n")}
 }
 
 async function main() {
-  console.log("🦜🔗 09 - 多智能体协作系统");
+  console.log("09 - 多智能体协作系统");
   console.log("=".repeat(60));
 
-  const llm = new ChatOpenAI({
-    modelName,
-    openAIApiKey: apiKey,
-    configuration: { baseURL },
-    temperature: 0,
-  });
+  const llm = createModelClient();
 
-  const searchTool = new Tool({
-    name: "search_database",
-    description: "搜索工具（模拟）",
-    schema: z.object({
-      query: z.string().describe("搜索查询"),
-    }),
-    func: async (input: { query: string }) => {
-      const knowledgeBase: Record<string, string> = {
-        "快速排序": "快速排序是一种分治算法，平均时间复杂度 O(n log n)，通过选择基准元素分区实现。",
-        "Python": "Python 是一种高级编程语言，语法简洁，适合快速开发。",
-        "算法": "算法是解决特定问题的一系列明确步骤。",
-        "代码优化": "代码优化包括时间复杂度优化、空间复杂度优化、代码可读性提升等。",
-      };
-
-      for (const [key, value] of Object.entries(knowledgeBase)) {
-        if (input.query.includes(key)) {
-          return `找到：${value}`;
-        }
-      }
-
-      return `关于 '${input.query}' 的搜索结果：建议查阅官方文档和技术博客。`;
-    },
-  });
+  const searchTool = createSearchTool();
 
   const supervisor = new SupervisorAgent(llm);
 
@@ -361,8 +332,9 @@ async function main() {
   console.log("\n✓ 多智能体系统初始化完成\n");
 
   const testTasks = [
-    "实现一个快速排序算法",
-    "研究 Python 的最佳实践",
+    "实现一个快速排序算法，使用 JS 实现",
+    // "实现算法计算 1=+...+100 的和",
+    // "研究 Python 的最佳实践",
   ];
 
   for (const task of testTasks) {
@@ -374,7 +346,7 @@ async function main() {
     console.log("\n");
   }
 
-  console.log("🎉 多智能体协作系统运行完成！");
+  console.log("多智能体协作系统运行完成！");
 }
 
 main().catch(console.error);

@@ -1,46 +1,51 @@
-import dotenv from "dotenv";
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { StringOutputParser } from "@langchain/core/output_parsers";
 import { HumanMessage } from "@langchain/core/messages";
+import { createModelClient } from "./clients/model";
 
-// 加载环境变量，覆盖已存在的变量
-dotenv.config({ override: true });
-
+// Hello Chain - LangChain TypeScript 示例
 async function helloChain() {
-  console.log("🦜 Hello Chain - LangChain TypeScript 示例");
-  console.log("=".repeat(50));
+  const model = createModelClient();
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-  const modelName = process.env.MODEL_NAME || "gpt-3.5-turbo";
+  const question = "什么是 LangChain？请简单介绍一下。";
 
-  if (!apiKey) {
-    console.error("❌ 请设置 OPENAI_API_KEY 环境变量");
-    process.exit(1);
-  }
+  // 旧用法：直接调用 LLM
+  // const response = await model.invoke([
+  //   new HumanMessage(question),
+  // ]).catch((error) => {
+  //   console.error("LLM 调用失败:", error);
+  //   throw error;
+  // });
 
-  const llm = new ChatOpenAI({
-    modelName,
-    openAIApiKey: apiKey,
-    configuration: { baseURL },
-    temperature: 0.7,
-    // verbose: true, // 如果需要调试信息，可以取消注释
-  });
+  // console.log("\n用户输入:");
+  // console.log(question);
+  // console.log("\n模型回复:");
+  // console.log(`  ${response.content}`);
 
-  const response = await llm.invoke([
-    new HumanMessage("用一句话介绍 LangChain 是什么？"),
-  ]).catch((error) => {
-    console.error("❌ LLM 调用失败:", error);
-    throw error;
-  });
 
-  console.log("\n📤 用户输入:");
-  console.log("  用一句话介绍 LangChain 是什么？");
+  // 新用法：使用 LCEL 链式调用(推荐)
+  const prompt = ChatPromptTemplate.fromTemplate(`
+你是一个友好的 AI 助手。请用中文回答用户的问题。
 
-  console.log("\n📥 模型回复:");
-  console.log(`  ${response.content}`);
+用户问题：{question}
 
-  console.log("\n" + "=".repeat(50));
-  console.log("✅ 示例运行完成！");
+请提供简洁而有用的回答：
+`);
+
+  // prompt: 传入用户问题
+  // model: 调用语言模型
+  // StringOutputParser: 将输出解析为字符串
+  const chain = prompt.pipe(model).pipe(new StringOutputParser());
+
+  console.log(`\n用户输入: ${question}`);
+
+  const result = await chain.invoke({ question });
+
+  console.log("\n模型回复:");
+  console.log(`  ${result}`);
+
+
+  console.log("示例运行完成！");
 }
 
 helloChain().catch(console.error);

@@ -201,9 +201,9 @@ pnpm 06-api-deployment
 
 | 编号 | 示例 | 关键词 | 难度 | Python | TS | 说明 |
 |---|---|---|---|---|---|---|
-| 07 | 高级 Agent 模式 | ReAct / Self-Ask / Plan-Execute | ⭐⭐⭐ | ✅ | ⏳ | 不同 Agent 开发模式对比 |
-| 08 | 结构化输出 | Pydantic / Zod | ⭐⭐⭐ | ✅ | ⏳ | 强类型数据提取与验证 |
-| 09 | 多智能体协作 | Supervisor + Sub-agents | ⭐⭐⭐⭐ | ✅ | ⏳ | 任务分解与协作 |
+| 07 | 高级 Agent 模式 | ReAct / Self-Ask / Plan-Execute | ⭐⭐⭐ | ✅ | ✅ | 不同 Agent 开发模式对比 |
+| 08 | 结构化输出 | Pydantic / Zod | ⭐⭐⭐ | ✅ | ✅ | 强类型数据提取与验证 |
+| 09 | 多智能体协作 | Supervisor + Sub-agents | ⭐⭐⭐⭐⭐ | ✅ | ✅ | 任务分解与协作 |
 | 10 | 流式输出 + ChatUI | Streaming + WebSocket | ⭐⭐⭐⭐ | ✅ | ⏳ | 实时响应前端交互 |
 | 11 | 生产级追踪 | LangSmith + 日志 | ⭐⭐⭐⭐⭐ | ✅ | ⏳ | 监控、调试、优化 |
 

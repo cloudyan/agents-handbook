@@ -1,64 +1,63 @@
 import dotenv from "dotenv";
-import { ChatOpenAI } from "@langchain/openai";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { Chroma } from "@langchain/community/vectorstores/chroma";
-import { OpenAIEmbeddings } from "@langchain/openai";
-import axios from "axios";
+import { StringOutputParser } from "@langchain/core/output_parsers";
+import { RunnablePassthrough, RunnableSequence } from "@langchain/core/runnables";
 import * as cheerio from "cheerio";
+import axios from "axios";
 
-// 加载环境变量，覆盖已存在的变量
+import { createModelClient } from "./clients/model";
+import { ollamaEmbeddings } from "./clients/embedding";
+
 dotenv.config({ override: true });
 
+// 检索增强问答 (RAG)
 async function ragQA() {
-  console.log("🔍 检索增强问答 (RAG) - LangChain TypeScript 示例");
-  console.log("=".repeat(50));
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-  const modelName = process.env.MODEL_NAME || "gpt-3.5-turbo";
+  const model = createModelClient({
+    temperature: 0,
+  });
 
-  if (!apiKey) {
-    console.error("❌ 请设置 OPENAI_API_KEY 环境变量");
-    process.exit(1);
-  }
+  console.log("\n准备文档数据...");
 
-  console.log("\n📥 正在加载文档...");
-  const url = "https://docs.langchain.com/docs/introduction";
-  const response = await axios.get(url);
-  const $ = cheerio.load(response.data);
-  const text = $("main").text();
+  const html = await axios.get("https://docs.langchain.com/oss/python/langchain/overview");
+  const $ = cheerio.load(html.data);
+  const docs = $("body").text();
 
-  console.log("✅ 文档加载完成");
-  console.log(`📄 文档长度: ${text.length} 字符`);
+  console.log(`文档内容: ${docs}`);
+  const allText = Object.values(docs).join("\n\n");
+
+  console.log("文档准备完成");
+  console.log(`文档长度: ${allText.length} 字符`);
 
   console.log("\n🔪 正在分割文档...");
   const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 1000,
-    chunkOverlap: 200,
+    chunkSize: 500,
+    chunkOverlap: 50,
   });
 
-  const chunks = await splitter.splitText(text);
-  console.log(`✅ 分割完成，共 ${chunks.length} 个片段`);
+  const chunks = await splitter.splitText(allText);
+  console.log(`分割完成，共 ${chunks.length} 个片段`);
 
-  console.log("\n🔤 正在创建向量索引...");
-  const embeddings = new OpenAIEmbeddings({
-    openAIApiKey: apiKey,
-    configuration: { baseURL },
-  });
+  console.log("\n正在创建向量索引...");
+  const embeddings = ollamaEmbeddings();
+  const vectorStore = await Chroma.fromTexts(
+    chunks,
+    chunks.map((_, i) => ({ source: "langchain-docs", index: i })),
+    embeddings,
+    {
+      collectionName: "rag-qa-demo",
+      clientParams: {
+        host: "localhost",
+        port: 8000,
+      },
+    }
+  );
+  console.log("向量索引创建完成");
 
-  const vectorStore = await Chroma.fromTexts(chunks, {}, embeddings, {
-    collectionName: "langchain-docs",
-  });
-  console.log("✅ 向量索引创建完成");
+  console.log("\n初始化问答系统...");
 
-  console.log("\n🤖 初始化问答系统...");
-  const llm = new ChatOpenAI({
-    modelName,
-    openAIApiKey: apiKey,
-    configuration: { baseURL },
-    temperature: 0,
-  });
 
   const prompt = ChatPromptTemplate.fromTemplate(`
 请根据以下上下文信息回答问题。如果上下文中没有相关信息，请说明无法回答。
@@ -73,25 +72,35 @@ async function ragQA() {
 
   const retriever = vectorStore.asRetriever(3);
 
+  const formatDocs = (docs: any[]) => {
+    return docs.map((doc) => doc.pageContent).join("\n\n");
+  };
+
+  const ragChain = RunnableSequence.from([
+    {
+      context: retriever.pipe(formatDocs),
+      question: new RunnablePassthrough(),
+    },
+    prompt,
+    model,
+    new StringOutputParser(),
+  ]);
+
   async function ask(question: string): Promise<void> {
-    console.log(`\n📤 问题: ${question}`);
+    console.log(`\n问题: ${question}`);
     console.log("-".repeat(50));
 
-    const docs = await retriever.invoke(question);
-    const context = docs.map((doc) => doc.pageContent).join("\n\n");
+    const result = await ragChain.invoke(question);
 
-    const chain = prompt.pipe(llm);
-    const result = await chain.invoke({ context, question });
-
-    console.log(`📥 回答: ${result.content}`);
-    console.log(`\n📚 引用了 ${docs.length} 个相关文档片段`);
+    console.log(`回答: ${result}`);
   }
 
-  await ask("什么是 LangChain？");
-  await ask("LangChain 有哪些主要组件？");
+  await ask("关于 LangChain 你知道什么？");
+  await ask("LangChain 提供哪些核心功能？");
+  await ask("什么是机器学习？");
 
   console.log("\n" + "=".repeat(50));
-  console.log("✅ RAG 问答系统运行完成！");
+  console.log("RAG 问答系统运行完成！");
 }
 
 ragQA().catch(console.error);

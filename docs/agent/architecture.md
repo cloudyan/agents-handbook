@@ -95,7 +95,7 @@ try:
     print("🎉 示例运行成功！")
     return 0
 except Exception as e:
-    print(f"❌ 运行错误：{e}")
+    print(f"运行错误：{e}")
     return 1
 ```
 
@@ -104,7 +104,7 @@ try {
     const result = await chain.invoke({ input: userInput });
     console.log("✅ 示例运行完成！");
 } catch (error) {
-    console.error("❌ 运行错误：", error);
+    console.error("运行错误：", error);
     process.exit(1);
 }
 ```
@@ -330,7 +330,7 @@ agents-handbook/
 ```python
 # Python 流式调用
 async for chunk in astream_chain({"input": query}):
-    print(chunk.content, end="", flush=True)
+    print("chunk.content, end="", flush=True)
 ```
 
 ```typescript

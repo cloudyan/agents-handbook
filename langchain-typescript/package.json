@@ -31,33 +31,38 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@langchain/core": "^0.3.0",
-    "@langchain/openai": "^0.3.0",
-    "@langchain/community": "^0.3.0",
-    "langchain": "^0.3.0",
-    "openai": "^4.0.0",
-    "chromadb": "^1.8.0",
-    "axios": "^1.6.0",
+    "@langchain/community": "^1.1.7",
+    "@langchain/core": "^1.1.17",
+    "@langchain/ollama": "^1.2.1",
+    "@langchain/openai": "^1.2.3",
+    "@langchain/redis": "^1.0.1",
+    "@langchain/textsplitters": "^1.0.1",
+    "@xenova/transformers": "^2.17.2",
+    "axios": "^1.13.3",
     "cheerio": "^1.0.0",
-    "dotenv": "^16.4.0",
-    "zod": "^3.22.0",
-    "express": "^4.18.0",
-    "ws": "^8.0.0"
+    "chromadb": "^3.2.2",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "ioredis": "^5.9.2",
+    "langchain": "^1.2.13",
+    "openai": "^6.16.0",
+    "ws": "^8.19.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/express": "^4.17.0",
-    "@types/ws": "^8.0.0",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
-    "eslint": "^8.0.0",
-    "prettier": "^3.2.0",
-    "tsx": "^4.7.0",
-    "typescript": "^5.3.0"
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.19.7",
+    "@types/ws": "^8.18.1",
+    "@typescript-eslint/eslint-plugin": "^8.53.1",
+    "@typescript-eslint/parser": "^8.53.1",
+    "eslint": "^8.57.1",
+    "prettier": "^3.8.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
   },
-  "packageManager": "pnpm@8.15.0"
+  "packageManager": "pnpm@10.28.1"
 }

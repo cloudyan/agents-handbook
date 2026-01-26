@@ -284,7 +284,7 @@ def get_html_content() -> str:
             };
 
             ws.onerror = (error) => {
-                console.error('WebSocket 错误:', error);
+                console.error("'WebSocket 错误:', error);
                 appendMessage('连接错误，请刷新页面重试', 'system');
             };
 

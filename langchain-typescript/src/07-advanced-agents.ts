@@ -1,185 +1,324 @@
-import dotenv from "dotenv";
 import { ChatOpenAI } from "@langchain/openai";
-import { Tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { AgentExecutor, createReactAgent } from "langchain/agents";
-import { pull } from "langchain/hub";
+import { createAgent, tool } from "langchain";
+import { HumanMessage } from "@langchain/core/messages";
+import type { DynamicStructuredTool } from "@langchain/core/tools";
+import { createModelClient } from "./clients/model";
 
-dotenv.config({ override: true });
 
-const apiKey = process.env.OPENAI_API_KEY;
-const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-const modelName = process.env.MODEL_NAME || "gpt-3.5-turbo";
+const searchDatabase = tool(
+  async (input: { query: string }) => {
+    const database: Record<string, string> = {
+      "Python": "Python 是一种高级编程语言，由 Guido van Rossum 创建。",
+      "机器学习": "机器学习是人工智能的一个分支，让计算机能够从数据中学习。",
+      "LangChain": "LangChain 是用于构建 LLM 应用的框架。",
+    };
 
-if (!apiKey) {
-  console.error("❌ 请设置 OPENAI_API_KEY 环境变量");
-  process.exit(1);
-}
+    for (const [key, value] of Object.entries(database)) {
+      if (input.query.toLowerCase().includes(key.toLowerCase())) {
+        return `找到信息：${value}`;
+      }
+    }
 
-async function advancedAgents() {
-  console.log("🦜🔗 07 - Advanced Agents");
-  console.log("=".repeat(50));
-
-  const llm = new ChatOpenAI({
-    modelName,
-    openAIApiKey: apiKey,
-    configuration: { baseURL },
-    temperature: 0,
-  });
-
-  console.log("\n=== 1. ReAct Agent 示例 ===");
-
-  const searchDatabase = new Tool({
+    return "未找到相关信息";
+  },
+  {
     name: "search_database",
     description: "搜索数据库中的信息",
     schema: z.object({
       query: z.string().describe("搜索查询字符串"),
     }),
-    func: async (input: { query: string }) => {
-      const database: Record<string, string> = {
-        "Python": "Python 是一种高级编程语言，由 Guido van Rossum 创建。",
-        "机器学习": "机器学习是人工智能的一个分支，让计算机能够从数据中学习。",
-        "LangChain": "LangChain 是用于构建 LLM 应用的框架。",
-      };
+  }
+);
 
-      for (const [key, value] of Object.entries(database)) {
-        if (input.query.toLowerCase().includes(key.toLowerCase())) {
-          return `找到信息：${value}`;
-        }
-      }
-
-      return "未找到相关信息";
-    },
-  });
-
-  const calculate = new Tool({
+const calculate = tool(
+  async (input: { expression: string }) => {
+    try {
+      const result = eval(input.expression);
+      return `计算结果：${result}`;
+    } catch {
+      return "计算错误，请检查表达式";
+    }
+  },
+  {
     name: "calculate",
     description: "计算数学表达式",
     schema: z.object({
       expression: z.string().describe("数学表达式，如 2 + 3 * 4"),
     }),
-    func: async (input: { expression: string }) => {
-      try {
-        const result = eval(input.expression);
-        return `计算结果：${result}`;
-      } catch {
-        return "计算错误，请检查表达式";
-      }
-    },
-  });
+  }
+);
 
-  const tools = [searchDatabase, calculate];
+class PlanExecuteAgent {
+  private model: ChatOpenAI;
+  private tools: Map<string, DynamicStructuredTool<any, any>>;
+  private toolCallCount: number = 0;
 
-  const prompt = await pull("hwchase17/react");
+  constructor(model: ChatOpenAI, tools: DynamicStructuredTool<any, any>[]) {
+    this.model = model;
+    this.tools = new Map();
+    tools.forEach((t) => this.tools.set(t.name, t));
+  }
 
-  const agent = await createReactAgent({
-    llm,
-    tools,
-    prompt,
-  });
+  getToolCallCount(): number {
+    return this.toolCallCount;
+  }
 
-  const agentExecutor = new AgentExecutor({
-    agent,
-    tools,
-    verbose: true,
-  });
+  resetToolCallCount(): void {
+    this.toolCallCount = 0;
+  }
 
-  console.log("测试 ReAct Agent:");
-  const reactResponse = await agentExecutor.invoke({
-    input: "Python 是什么？再计算一下 15 + 27 等于多少？",
-  });
-  console.log(`ReAct 回答：${reactResponse.output}`);
-
-  console.log("\n=== 2. Plan-and-Execute 模式示例 ===");
-
-  class PlanExecuteAgent {
-    private llm: ChatOpenAI;
-    private tools: Map<string, Tool>;
-
-    constructor(llm: ChatOpenAI, tools: Tool[]) {
-      this.llm = llm;
-      this.tools = new Map();
-      tools.forEach((tool) => this.tools.set(tool.name, tool));
-    }
-
-    async plan(goal: string): Promise<string[]> {
-      const toolNames = Array.from(this.tools.keys()).join(", ");
-      const prompt = `给定一个目标，制定一个详细的执行计划。列出需要执行的步骤。
+  // 规划阶段
+  async plan(goal: string): Promise<string[]> {
+    const toolNames = Array.from(this.tools.keys()).join(", ");
+    const prompt = `给定一个目标，制定一个简洁的执行计划。只列出需要执行的关键步骤，每个步骤一行。
 
 目标：${goal}
 
 可用工具：${toolNames}
 
-请制定执行计划：`;
+请按以下格式输出，只包含步骤编号和步骤描述：
+1. 第一步
+2. 第二步
+3. 第三步
 
-      const response = await this.llm.invoke(prompt);
-      return ["搜索相关信息", "分析数据", "生成报告"];
-    }
+执行计划：`;
 
-    async execute(plan: string[]): Promise<string> {
-      const results: string[] = [];
+    const response = await this.model.invoke(prompt);
+    const content = response.content as string;
 
-      for (const step of plan) {
-        console.log(`执行步骤：${step}`);
+    const steps = content
+      .split("\n")
+      .filter(line => line.trim().length > 0)
+      .map(line => line.replace(/^\d+[\.\、]\s*/, "").trim())
+      .filter(line => line.length > 5 && line.length < 100)
+      .slice(0, 5);
 
-        if (step.includes("搜索")) {
-          const searchTool = this.tools.get("search_database");
-          if (searchTool) {
-            const result = await searchTool.invoke({ query: "Python" });
-            results.push(result);
-          }
-        } else if (step.includes("计算")) {
-          const calcTool = this.tools.get("calculate");
-          if (calcTool) {
-            const result = await calcTool.invoke({ expression: "10 + 20" });
-            results.push(result);
-          }
-        } else {
-          results.push(`完成步骤：${step}`);
-        }
-
-        console.log(`结果：${results[results.length - 1]}`);
-      }
-
-      return results.join("\n");
-    }
-
-    async run(goal: string): Promise<string> {
-      console.log(`目标：${goal}`);
-
-      const plan = await this.plan(goal);
-      console.log(`制定的计划：${plan}`);
-
-      const result = await this.execute(plan);
-
-      return `计划执行完成：\n${result}`;
-    }
+    return steps.length > 0 ? steps : ["分析问题需求", "使用工具获取信息", "整理答案"];
   }
 
-  const planExecuteAgent = new PlanExecuteAgent(llm, tools);
+  // 执行阶段
+  async execute(plan: string[], goal: string): Promise<string> {
+    const toolResults: string[] = [];
+
+    for (const step of plan) {
+      const stepLower = step.toLowerCase();
+
+      if (stepLower.includes("搜索") || stepLower.includes("search") || stepLower.includes("查询")) {
+        const searchTool = this.tools.get("search_database");
+        if (searchTool) {
+          this.toolCallCount++;
+          let query = goal;
+
+          if (goal.toLowerCase().includes("python")) {
+            query = "Python";
+          } else if (goal.toLowerCase().includes("langchain")) {
+            query = "LangChain";
+          } else {
+            query = goal.replace(/搜索|查询|信息|是什么|等/g, "").trim();
+          }
+
+          const result = await searchTool.invoke({ query });
+          toolResults.push(result);
+        }
+      } else if (stepLower.includes("计算") || stepLower.includes("calculate") || /\d+[\+\-\*\/]\d+/.test(goal)) {
+        const calcTool = this.tools.get("calculate");
+        if (calcTool) {
+          this.toolCallCount++;
+          const exprMatch = goal.match(/\d+[\+\-\*\/]\d+/);
+          const expr = exprMatch ? exprMatch[0] : goal.replace(/计算|等于|等/g, "").trim();
+          const result = await calcTool.invoke({ expression: expr });
+          toolResults.push(result);
+        }
+      }
+    }
+
+    if (toolResults.length === 0) {
+      return "根据现有知识直接回答问题。";
+    }
+
+    const answerPrompt = `根据以下工具执行结果，生成最终答案：
+
+目标：${goal}
+工具结果：
+${toolResults.map((r, i) => `${i + 1}. ${r}`).join("\n")}
+
+请提供简洁、准确的答案：`;
+
+    const finalResponse = await this.model.invoke(answerPrompt);
+    return finalResponse.content as string;
+  }
+
+  async run(goal: string): Promise<{ result: string; steps: string[] }> {
+    this.resetToolCallCount();
+
+    const plan = await this.plan(goal);
+
+    const result = await this.execute(plan, goal);
+
+    return {
+      result: `计划执行完成：\n${result}`,
+      steps: plan
+    };
+  }
+}
+
+// Advanced Agents
+// 理解 Agent 模式差异
+//  * ReAct：适合实时交互、丰富解释、灵活推理的场景
+//  * Plan-and-Execute：适合需要精确控制、系统化流程的复杂场景
+// 培养 Agent 设计思维
+//  * 何时使用框架内置模式
+//  * 何时需要自定义实现
+//  * 评估和比较不同 Agent 模式的性能
+interface AgentTestResult {
+  question: string;
+  answer: string;
+  toolCalls: number;
+  success: boolean;
+  steps?: string[];
+}
+
+async function advancedAgents() {
+  const model = createModelClient();
+
+  const tools = [searchDatabase, calculate];
+
+
+  // ReAct 模式: 实时推理 + 工具调用，灵活但可能发散
+  console.log("=== 1. ReAct 模式示例 ===");
+  const agent = createAgent({
+    model,
+    tools,
+    systemPrompt: "你是一个智能助手，可以使用工具来帮助用户回答问题。请根据用户的问题，决定是否需要调用工具，并给出最终答案。请用中文回答问题。",
+  });
+
+  const reactResponse = await agent.invoke({
+    messages: [new HumanMessage("Python 是什么？再计算一下 15 + 27 等于多少？")],
+  });
+  console.log(`ReAct 回答：${reactResponse.messages[reactResponse.messages.length - 1].content}`);
+
+
+  // Plan-and-Execute 模式: 先规划再执行，系统性强但不够灵活
+  console.log("\n=== 2. Plan-and-Execute 模式示例 ===");
+
+  const planExecuteAgent = new PlanExecuteAgent(model, tools as DynamicStructuredTool<any, any>[]);
   const planResult = await planExecuteAgent.run("研究 Python 并进行相关计算");
-  console.log(`\nPlan-and-Execute 结果：\n${planResult}`);
+  console.log(`\nPlan-and-Execute 结果：\n${planResult.result}`);
+  console.log(`执行步骤：${planResult.steps.join("\n → ")}`);
+
 
   console.log("\n=== 3. Agent 性能对比 ===");
-
   const comparisonQuestions = [
     "什么是 Python？",
     "计算 25 * 4 等于多少？",
     "搜索 LangChain 的信息",
   ];
 
+  const reactResults: AgentTestResult[] = [];
+  const planResults: AgentTestResult[] = [];
+
   console.log("\n--- ReAct Agent 测试 ---");
   for (const question of comparisonQuestions) {
     try {
-      const response = await agentExecutor.invoke({ input: question });
-      console.log(`Q: ${question}`);
-      console.log(`A: ${response.output.slice(0, 100)}...`);
+      const response = await agent.invoke({
+        messages: [new HumanMessage(question)],
+      });
+      const content = response.messages[response.messages.length - 1].content as string;
+
+      const toolCallPattern = /调用工具|使用工具|Tool call/i;
+      const toolCalls = (content.match(toolCallPattern) || []).length;
+
+      reactResults.push({
+        question,
+        answer: content,
+        toolCalls,
+        success: content.length > 10
+      });
+
+      console.log(`✓ ${question}`);
     } catch (e: unknown) {
-      console.log(`错误：${e instanceof Error ? e.message : String(e)}`);
+      reactResults.push({
+        question,
+        answer: `错误：${e instanceof Error ? e.message : String(e)}`,
+        toolCalls: 0,
+        success: false
+      });
+      console.log(`✗ ${question}`);
     }
   }
 
-  console.log("\n🎉 高级 Agent 示例运行完成！");
+  console.log("\n--- Plan-and-Execute Agent 测试 ---");
+  for (const question of comparisonQuestions) {
+    try {
+      const result = await planExecuteAgent.run(question);
+
+      planResults.push({
+        question,
+        answer: result.result,
+        toolCalls: planExecuteAgent.getToolCallCount(),
+        success: result.result.length > 10,
+        steps: result.steps
+      });
+
+      console.log(`✓ ${question}`);
+    } catch (e: unknown) {
+      planResults.push({
+        question,
+        answer: `错误：${e instanceof Error ? e.message : String(e)}`,
+        toolCalls: 0,
+        success: false
+      });
+      console.log(`✗ ${question}`);
+    }
+  }
+
+  console.log("\n=== 4. 对比结果汇总 ===");
+
+  console.log("\n┌─────────────────────┬──────────────────┬──────────────────┬──────────────┬──────────────┐");
+  console.log("│ 问题                │ ReAct 工具调用    │ Plan 工具调用    │ ReAct 成功率  │ Plan 成功率  │");
+  console.log("├─────────────────────┼──────────────────┼──────────────────┼──────────────┼──────────────┤");
+
+  for (let i = 0; i < comparisonQuestions.length; i++) {
+    const react = reactResults[i];
+    const plan = planResults[i];
+
+    const q = comparisonQuestions[i].slice(0, 19).padEnd(19);
+    const reactCalls = String(react.toolCalls).padEnd(16);
+    const planCalls = String(plan.toolCalls).padEnd(16);
+    const reactSuccess = react.success ? "✓ 成功".padEnd(12) : "✗ 失败".padEnd(12);
+    const planSuccess = plan.success ? "✓ 成功" : "✗ 失败";
+
+    console.log(`│ ${q} │ ${reactCalls} │ ${planCalls} │ ${reactSuccess} │ ${planSuccess} │`);
+  }
+
+  console.log("└─────────────────────┴──────────────────┴──────────────────┴──────────────┴──────────────┘");
+
+  const reactTotalCalls = reactResults.reduce((sum, r) => sum + r.toolCalls, 0);
+  const planTotalCalls = planResults.reduce((sum, r) => sum + r.toolCalls, 0);
+  const reactSuccessRate = (reactResults.filter(r => r.success).length / reactResults.length * 100).toFixed(0);
+  const planSuccessRate = (planResults.filter(r => r.success).length / planResults.length * 100).toFixed(0);
+
+  console.log(`\n📊 统计汇总：`);
+  console.log(`   ReAct Agent: 总工具调用 ${reactTotalCalls} 次, 成功率 ${reactSuccessRate}%`);
+  console.log(`   Plan Agent:  总工具调用 ${planTotalCalls} 次, 成功率 ${planSuccessRate}%`);
+  console.log(`   效率对比: ${reactTotalCalls < planTotalCalls ? "ReAct 更高效" : "Plan 更高效"}`);
+
+  console.log("\n=== 5. 详细答案对比 ===\n");
+
+  for (let i = 0; i < comparisonQuestions.length; i++) {
+    console.log(`📌 问题 ${i + 1}: ${comparisonQuestions[i]}`);
+    console.log(`\n  [ReAct]`);
+    console.log(`  ${reactResults[i].answer.slice(0, 150)}${reactResults[i].answer.length > 150 ? "..." : ""}`);
+    console.log(`\n  [Plan-and-Execute]`);
+    console.log(`  ${planResults[i].answer.slice(0, 150)}${planResults[i].answer.length > 150 ? "..." : ""}`);
+    if (planResults[i].steps) {
+      console.log(`  步骤: ${planResults[i].steps.join("\n → ")}`);
+    }
+    console.log();
+  }
+
+  console.log("\n高级 Agent 示例运行完成！");
 }
 
 advancedAgents().catch(console.error);

@@ -19,7 +19,7 @@ const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
 const modelName = process.env.MODEL_NAME || "gpt-3.5-turbo";
 
 if (!apiKey) {
-  console.error("❌ 请设置 OPENAI_API_KEY 环境变量");
+  console.error("请设置 OPENAI_API_KEY 环境变量");
   process.exit(1);
 }
 
@@ -306,7 +306,7 @@ function getHtmlContent(): string {
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <h1>🦜🔗 LangChain 流式聊天</h1>
+            <h1>LangChain 流式聊天</h1>
             <p>
                 <span class="status-indicator disconnected" id="status"></span>
                 <span id="status-text">未连接</span>
@@ -345,7 +345,7 @@ function getHtmlContent(): string {
             };
 
             ws.onerror = (error) => {
-                console.error('WebSocket 错误:', error);
+                console.error("'WebSocket 错误:', error);
                 appendMessage('连接错误，请刷新页面重试', 'system');
             };
 
@@ -437,7 +437,7 @@ function getHtmlContent(): string {
 }
 
 server.listen(PORT, () => {
-  console.log("🦜🔗 10 - 流式输出 + ChatUI");
+  console.log("10 - 流式输出 + ChatUI");
   console.log("=".repeat(60));
   console.log(`启动服务器...`);
   console.log(`访问: http://localhost:${PORT}`);
