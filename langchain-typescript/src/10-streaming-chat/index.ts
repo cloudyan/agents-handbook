@@ -18,7 +18,9 @@ const PORT = process.env.PORT || 8000;
 app.use(express.json());
 app.use(express.static(join(__dirname, ".")));
 
-const llm = createModelClient();
+const llm = createModelClient({
+  streaming: true,
+});
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
@@ -55,7 +57,7 @@ async function* streamResponse(
       if (chunk.content) {
         const content = chunk.content as string;
         fullResponse += content;
-        yield content;
+        yield content; // 逐块返回
       }
     }
 
@@ -85,7 +87,7 @@ wss.on("connection", (ws: WebSocket) => {
       try {
         for await (const chunk of streamResponse(llm, message, session)) {
           if (ws.readyState === WebSocket.OPEN) {
-            ws.send(chunk);
+            ws.send(chunk); // 实时推送到客户端
           }
         }
 

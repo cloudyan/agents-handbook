@@ -38,6 +38,7 @@ function connect() {
             const currentResponse = document.getElementById('current-response');
             if (currentResponse) {
                 currentResponse.removeAttribute('id');
+                currentResponse.innerHTML = currentResponse.textContent.replace(/\n/g, '<br>');
             }
         } else {
             handleStreamMessage(event.data);
@@ -58,12 +59,22 @@ function updateStatus(connected) {
         indicator.classList.add('disconnected');
         text.textContent = '未连接';
     }
+
+    console.log('状态更新:', connected, indicator.className);
 }
 
 function appendMessage(content, type = 'assistant') {
     const messagesDiv = document.getElementById('messages');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}`;
+
+    if (type === 'system') {
+        if (content.includes('已连接')) {
+            messageDiv.classList.add('system-success');
+        } else {
+            messageDiv.classList.add('system-error');
+        }
+    }
 
     if (type === 'assistant' && isStreaming) {
         messageDiv.id = 'current-response';
@@ -83,7 +94,7 @@ function handleStreamMessage(content) {
         currentResponse = appendMessage('', 'assistant');
     }
 
-    currentResponse.innerHTML += content.replace(/\\n/g, '<br>');
+    currentResponse.textContent += content;
     document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
 }
 
@@ -92,7 +103,7 @@ function sendMessage() {
     const button = document.getElementById('send-button');
     const message = input.value.trim();
 
-    if (!message || !ws || ws.readyState !== WebSocket.OPEN) {
+    if (!message || !ws || ws.readyState !== WebSocket.OPEN || isStreaming) {
         return;
     }
 
@@ -107,7 +118,7 @@ function sendMessage() {
 }
 
 function handleKeyPress(event) {
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && !isStreaming) {
         sendMessage();
     }
 }
