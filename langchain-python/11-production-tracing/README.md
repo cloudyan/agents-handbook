@@ -25,8 +25,8 @@
 ```bash
 # LangSmith 配置
 LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=your_langsmith_api_key
-LANGCHAIN_PROJECT=agents-handbook
+LANGSMITH_API_KEY=your_langsmith_api_key
+LANGSMITH_PROJECT=agents-handbook
 
 # OpenAI 配置
 OPENAI_API_KEY=your_openai_api_key
@@ -36,8 +36,14 @@ OPENAI_API_KEY=your_openai_api_key
 
 1. 访问 https://smith.langchain.com/
 2. 注册/登录账户
-3. 创建新项目
-4. 获取 API Key
+3. 点击右上角头像 → Settings → API Keys
+4. 点击 "Create API Key"
+5. 复制生成的 API Key
+
+### 免费额度
+- 每月 5000 次追踪
+- 30 天数据保留
+- 基础分析功能
 
 ## 运行方法
 
@@ -52,8 +58,8 @@ python tracing_example.py
 ```python
 import os
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
-os.environ["LANGCHAIN_API_KEY"] = "your-key"
-os.environ["LANGCHAIN_PROJECT"] = "my-project"
+os.environ["LANGSMITH_API_KEY"] = "your-key"
+os.environ["LANGSMITH_PROJECT"] = "my-project"
 ```
 
 ### 添加标签和元数据

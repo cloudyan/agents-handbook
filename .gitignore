@@ -76,3 +76,5 @@ temp/
 .virtual_documents
 .ruff_cache
 anaconda_projects
+reports/*
+!reports/*.md

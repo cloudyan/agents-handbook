@@ -148,7 +148,7 @@ class CustomCallbackHandler:
         self.logs.append(log_entry)
         print(log_entry)
 
-    def save_logs(self, filename: str = "execution_logs.txt"):
+    def save_logs(self, filename: str = "reports/execution_logs.txt"):
         """保存日志到文件"""
         with open(filename, "w", encoding="utf-8") as f:
             f.write("\n".join(self.logs))
@@ -158,13 +158,18 @@ class CustomCallbackHandler:
 
 def setup_langsmith():
     """配置 LangSmith 追踪"""
-    if not os.getenv("LANGCHAIN_API_KEY"):
-        print("⚠️  未设置 LANGCHAIN_API_KEY，LangSmith 追踪已禁用")
+    if not os.getenv("LANGSMITH_API_KEY"):
+        print("⚠️  未设置 LANGSMITH_API_KEY，LangSmith 追踪已禁用")
         print("   访问 https://smith.langchain.com/ 获取 API Key")
         return False
 
+    project_name = os.getenv("LANGSMITH_PROJECT", "agents-handbook")
     os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    os.environ["LANGSMITH_PROJECT"] = project_name
+
     print("✓ LangSmith 追踪已启用")
+    print(f"  项目名称: {project_name}")
+    print(f"  追踪地址: https://smith.langchain.com/")
     return True
 
 
