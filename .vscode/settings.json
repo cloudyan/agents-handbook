@@ -1,1 +1,10 @@
-{"python.defaultInterpreterPath": "./langchain-python/.venv/bin/python"}
+{
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/langchain-python"
+  ],
+  "python.autoComplete.extraPaths": [
+    "${workspaceFolder}/langchain-python/10-streaming-chat",
+    "${workspaceFolder}/langchain-python"
+  ],
+  "python.defaultInterpreterPath": "./langchain-python/.venv/bin/python"
+}

@@ -11,8 +11,8 @@
 ## 运行方法
 
 ```bash
-cd langchain-python/07-advanced-agents
-python advanced_agents.py
+cd langchain-python
+uv run python 07-advanced-agents/advanced_agents.py
 ```
 
 ## Agent开发流程详解

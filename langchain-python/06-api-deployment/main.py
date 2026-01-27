@@ -1,41 +1,34 @@
 #!/usr/bin/env python3
 """
 06 - API Deployment
-使用 FastAPI 部署天气智能体为 HTTP 服务
+使用 FastAPI 部署天气智能体为 HTTP 服务，参考 TypeScript 版本实现
 """
 
 import os
+import sys
 import json
+import httpx
 import uvicorn
-from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from pydantic import SecretStr
 
-# 加载环境变量
 load_dotenv(override=True)
 
-# 检查 API 密钥
 if not os.getenv("OPENAI_API_KEY"):
     print("警告：请设置 OPENAI_API_KEY 环境变量")
 
-# 导入 LangChain 组件
-try:
-    from langchain_openai import ChatOpenAI
-    from langchain_core.tools import tool
-    from langchain.agents import AgentExecutor, create_tool_calling_agent
-    from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+if not os.getenv("OPENWEATHER_API_KEY"):
+    print("警告：请设置 OPENWEATHER_API_KEY 环境变量")
 
-    LANGCHAIN_AVAILABLE = True
-except ImportError:
-    LANGCHAIN_AVAILABLE = False
-    print("警告：LangChain 组件未安装，将使用模拟模式")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 创建 FastAPI 应用
+PORT = int(os.getenv("PORT", "8000"))
+
 app = FastAPI(
     title="LangChain 天气智能体 API",
     description="基于 LangChain 的天气查询和智能建议 API",
@@ -51,223 +44,117 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 全局变量
-agent_executor = None
-
-
-# 请求/响应模型
-class WeatherRequest(BaseModel):
-    location: str
-    days: int = 1
-
 
 class ChatRequest(BaseModel):
     message: str
-    session_id: Optional[str] = None
-
-
-class WeatherResponse(BaseModel):
-    location: str
-    date: str
-    temperature: Dict[str, float]
-    condition: str
-    humidity: float
-    wind_speed: float
-    rain: bool
-
-
-class ChatResponse(BaseModel):
-    response: str
-    session_id: str
-    timestamp: str
+    session_id: str | None = None
 
 
 class HealthResponse(BaseModel):
     status: str
     langchain_available: bool
     openai_configured: bool
+    openweather_configured: bool
 
 
-# 模拟天气数据
-def get_weather_data(location: str, days: int = 1) -> dict:
-    """获取天气数据（模拟）"""
-    weather_database = {
-        "北京": {
-            "temp_range": (15, 25),
-            "conditions": ["晴", "多云", "小雨"],
-            "humidity_range": (40, 70),
-            "wind_range": (5, 15),
-        },
-        "上海": {
-            "temp_range": (18, 28),
-            "conditions": ["多云", "阴", "小雨"],
-            "humidity_range": (60, 80),
-            "wind_range": (10, 20),
-        },
-        "广州": {
-            "temp_range": (22, 32),
-            "conditions": ["晴", "多云", "雷阵雨"],
-            "humidity_range": (70, 90),
-            "wind_range": (5, 12),
-        },
-        "深圳": {
-            "temp_range": (23, 31),
-            "conditions": ["晴", "多云", "阵雨"],
-            "humidity_range": (65, 85),
-            "wind_range": (8, 15),
-        },
-    }
+try:
+    from langchain.agents import create_agent
+    from langchain.tools import tool
+    from langchain_core.messages import HumanMessage
+    from clients import create_model_client
 
-    city_data = weather_database.get(
-        location,
-        {
-            "temp_range": (10, 20),
-            "conditions": ["晴", "多云", "阴"],
-            "humidity_range": (50, 70),
-            "wind_range": (5, 15),
-        },
+    LANGCHAIN_AVAILABLE = True
+
+    @tool
+    def get_weather(location: str, days: int = 1) -> str:
+        """获取指定城市的天气预报，包括温度、天气状况和降雨概率。
+
+        Args:
+            location (str): 城市英文名称，例如 Beijing, Shanghai
+            days (int): 预报天数，默认为1天
+
+        Returns:
+            str: 天气预报信息
+        """
+        try:
+            api_key = os.getenv("OPENWEATHER_API_KEY")
+            if not api_key:
+                return "OPENWEATHER_API_KEY 环境变量未设置"
+
+            url = f"https://api.openweathermap.org/data/2.5/forecast"
+            params = {
+                "q": location,
+                "appid": api_key,
+                "units": "metric",
+                "cnt": days * 8,
+            }
+
+            response = httpx.get(url, params=params, timeout=10.0)
+            response.raise_for_status()
+            data = response.json()
+
+            forecasts = data["list"][: days * 8]
+            result = f"{location} 天气预报：\n"
+
+            for item in forecasts:
+                from datetime import datetime
+                date = datetime.fromtimestamp(item["dt"]).strftime("%Y-%m-%d")
+                condition = item["weather"][0]["description"]
+                temp = item["main"]["temp"]
+                result += f"{date} {condition}, 温度: {temp}°C\n"
+
+            return result
+        except Exception as e:
+            return f"获取天气失败: {str(e)}"
+
+    @tool
+    def calculate(expression: str) -> str:
+        """计算数学表达式。
+
+        Args:
+            expression (str): 数学表达式，如 "2 + 3 * 4"
+
+        Returns:
+            str: 计算结果
+        """
+        try:
+            result = eval(expression)
+            return f"计算结果：{result}"
+        except:
+            return "计算错误，请检查表达式"
+
+    llm = create_model_client(temperature=0, streaming=True)
+    system_prompt = "你是一个智能助手，可以使用工具来帮助用户回答问题。请根据用户的问题，决定是否需要调用工具，并给出最终答案。请用中文回答问题。"
+
+    agent = create_agent(
+        model=llm,
+        tools=[get_weather, calculate],
+        system_prompt=system_prompt,
     )
 
-    weather_data = []
-    base_date = datetime.now()
+    print("✓ 智能体初始化完成")
 
-    import random
-
-    for i in range(days):
-        date = base_date + timedelta(days=i)
-        temp_min, temp_max = city_data["temp_range"]
-        humidity_min, humidity_max = city_data["humidity_range"]
-        wind_min, wind_max = city_data["wind_range"]
-
-        random.seed(hash(location + str(i)))
-
-        day_data = {
-            "date": date.strftime("%Y-%m-%d"),
-            "location": location,
-            "temperature": {
-                "min": round(temp_min + random.uniform(-2, 2), 1),
-                "max": round(temp_max + random.uniform(-2, 2), 1),
-                "avg": round((temp_min + temp_max) / 2 + random.uniform(-1, 1), 1),
-            },
-            "condition": random.choice(city_data["conditions"]),
-            "humidity": round(random.uniform(humidity_min, humidity_max), 1),
-            "wind_speed": round(random.uniform(wind_min, wind_max), 1),
-            "rain": random.choice([True, False])
-            if "雨" in random.choice(city_data["conditions"])
-            else False,
-        }
-        weather_data.append(day_data)
-
-    return {"location": location, "days": days, "data": weather_data}
+except ImportError as e:
+    print(f"❌ 导入错误：{e}")
+    LANGCHAIN_AVAILABLE = False
+    agent = None
+except Exception as e:
+    print(f"❌ 智能体初始化失败：{e}")
+    LANGCHAIN_AVAILABLE = False
+    agent = None
 
 
-# 初始化智能体
-def initialize_agent():
-    """初始化天气智能体"""
-    global agent_executor
-
-    if not LANGCHAIN_AVAILABLE or not os.getenv("OPENAI_API_KEY"):
-        print("智能体初始化跳过：LangChain 或 OpenAI 配置不完整")
-        return
-
-    try:
-
-        @tool
-        def get_weather(location: str, days: int = 1) -> str:
-            """获取指定地点未来几天的天气信息。
-
-            Args:
-                location (str): 城市名称，如"北京"、"上海"
-                days (int): 查询天数，默认1天，最多7天
-
-            Returns:
-                str: 天气信息的JSON格式字符串
-            """
-            days = min(max(days, 1), 7)
-
-            try:
-                weather_data = get_weather_data(location, days)
-                return json.dumps(weather_data, ensure_ascii=False, indent=2)
-            except Exception as e:
-                return json.dumps(
-                    {"error": f"获取天气数据失败：{str(e)}"}, ensure_ascii=False
-                )
-
-        # 从环境变量读取配置
-        api_key = os.getenv("OPENAI_API_KEY", "")
-        base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-        model_name = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
-
-        # 创建 LLM 和智能体
-        llm = ChatOpenAI(
-            model=model_name,
-            temperature=0,
-            api_key=SecretStr(api_key),
-            base_url=base_url,
-        )
-
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    """
-            你是一个专业的天气助手智能体。你能够：
-
-            1. 获取指定城市的天气信息
-            2. 分析天气数据并提供建议
-            3. 根据天气情况给出穿衣、出行建议
-
-            可用工具：
-            - get_weather: 获取天气数据
-
-            工作流程：
-            1. 理解用户需求
-            2. 获取相关天气数据
-            3. 分析数据并提供建议
-
-            请用中文回答，保持友好和专业的语调。
-            """,
-                ),
-                ("user", "{input}"),
-                MessagesPlaceholder(variable_name="agent_scratchpad"),
-            ]
-        )
-
-        tools = [get_weather]
-
-        agent = create_tool_calling_agent(llm=llm, tools=tools, prompt=prompt)
-
-        agent_executor = AgentExecutor(
-            agent=agent, tools=tools, verbose=False, max_iterations=5
-        )
-
-        print("✓ 天气智能体初始化完成")
-
-    except Exception as e:
-        print(f"智能体初始化失败：{e}")
-        agent_executor = None
-
-
-# 启动时初始化
-@app.on_event("startup")
-async def startup_event():
-    """应用启动时执行"""
-    initialize_agent()
-
-
-# API 路由
 @app.get("/", response_model=Dict[str, Any])
 async def root():
     """根路径，返回 API 信息"""
     return {
-        "message": "LangChain 天气智能体 API",
-        "version": "1.0.0",
+        "message": "LangChain 智能体 API Server (使用 createAgent)",
         "endpoints": {
-            "health": "/health",
-            "weather": "/weather",
-            "chat": "/chat",
-            "docs": "/docs",
+            "/chat": "POST - 与 Agent 对话（支持工具调用）",
+            "/chat/stream": "POST - 与 Agent 对话（SSE 流式输出）",
+            "/health": "GET - 健康检查",
         },
+        "tools": ["get_weather", "calculate"],
     }
 
 
@@ -275,111 +162,110 @@ async def root():
 async def health_check():
     """健康检查"""
     return HealthResponse(
-        status="healthy",
+        status="ok",
         langchain_available=LANGCHAIN_AVAILABLE,
         openai_configured=bool(os.getenv("OPENAI_API_KEY")),
+        openweather_configured=bool(os.getenv("OPENWEATHER_API_KEY")),
     )
 
 
-@app.post("/weather", response_model=Dict[str, Any])
-async def get_weather_endpoint(request: WeatherRequest):
-    """获取天气信息 API"""
-    try:
-        weather_data = get_weather_data(request.location, request.days)
-
-        # 转换为响应格式
-        response = {
-            "location": weather_data["location"],
-            "days": weather_data["days"],
-            "forecast": [
-                {
-                    "date": day["date"],
-                    "temperature": day["temperature"],
-                    "condition": day["condition"],
-                    "humidity": day["humidity"],
-                    "wind_speed": day["wind_speed"],
-                    "rain": day["rain"],
-                }
-                for day in weather_data["data"]
-            ],
-        }
-
-        return response
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取天气数据失败：{str(e)}")
-
-
-@app.post("/chat", response_model=ChatResponse)
+@app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
     """智能体对话 API"""
-    global agent_executor
+    global agent
 
-    if not agent_executor:
-        # 模拟响应
-        simulated_responses = [
-            f"关于'{request.message}'，我需要更多信息来帮助您。",
-            f"我理解您想了解：{request.message}。请提供更具体的位置信息。",
-            f"收到您的消息：{request.message}。我可以帮您查询天气信息。",
-        ]
+    if not agent:
+        raise HTTPException(status_code=500, detail="智能体未初始化")
 
-        import random
+    try:
+        print(f"\n[{request.session_id or 'anonymous'}] 用户问题: {request.message}")
+        print("-" * 50)
 
-        response_text = random.choice(simulated_responses)
-    else:
-        try:
-            # 使用智能体响应
-            response = agent_executor.invoke({"input": request.message})
-            response_text = response["output"]
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"智能体处理失败：{str(e)}")
+        response = await agent.ainvoke(
+            {"messages": [HumanMessage(content=request.message)]}
+        )
 
-    return ChatResponse(
-        response=response_text,
-        session_id=request.session_id or "default",
-        timestamp=datetime.now().isoformat(),
+        answer = response["messages"][-1].content
+
+        print(f"\n最终回答: {answer}")
+        print("=" * 50)
+
+        return {
+            "message": answer,
+            "timestamp": __import__("datetime").datetime.now().isoformat(),
+        }
+    except Exception as e:
+        print(f"❌ 处理请求时出错: {e}")
+        raise HTTPException(status_code=500, detail=f"处理请求失败: {str(e)}")
+
+
+async def generate_streaming_response(message: str, session_id: str | None = None):
+    """生成流式响应"""
+    try:
+        print(f"\n[{session_id or 'anonymous'}] 用户问题 (流式): {message}")
+        print("-" * 50)
+
+        async for token, metadata in agent.astream(
+            {"messages": [{"role": "user", "content": message}]},
+            stream_mode="messages",
+        ):
+            if hasattr(token, "content_blocks"):
+                for block in token.content_blocks:
+                    if block.get("type") == "text":
+                        text = block.get("text", "")
+                        if text:
+                            yield f"data: {json.dumps({'content': text, 'type': 'message'}, ensure_ascii=False)}\n\n"
+                            print(f"[流式输出] {text[:50]}...")
+
+        yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
+        print("\n流式输出完成")
+        print("=" * 50)
+
+    except Exception as e:
+        print(f"❌ 处理流式请求时出错: {e}")
+        yield f"data: {json.dumps({'error': str(e), 'type': 'error'}, ensure_ascii=False)}\n\n"
+
+
+@app.post("/chat/stream")
+async def chat_stream_endpoint(request: ChatRequest):
+    """智能体对话 API（流式输出）"""
+    global agent
+
+    if not agent:
+        raise HTTPException(status_code=500, detail="智能体未初始化")
+
+    return StreamingResponse(
+        generate_streaming_response(request.message, request.session_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
-@app.get("/weather/{location}", response_model=Dict[str, Any])
-async def get_weather_by_location(location: str, days: int = 1):
-    """通过路径参数获取天气信息"""
-    if days < 1 or days > 7:
-        raise HTTPException(status_code=400, detail="天数必须在 1-7 之间")
-
-    weather_data = get_weather_data(location, days)
-
-    return {
-        "location": weather_data["location"],
-        "days": weather_data["days"],
-        "forecast": weather_data["data"],
-    }
-
-
-# 后台任务示例
-async def process_weather_data(location: str):
-    """后台处理天气数据"""
-    # 这里可以添加复杂的数据处理逻辑
-    await asyncio.sleep(2)  # 模拟处理时间
-    print(f"后台处理完成：{location}")
-
-
-@app.post("/weather-process/{location}")
-async def process_weather_background(location: str, background_tasks: BackgroundTasks):
-    """后台处理天气数据"""
-    background_tasks.add_task(process_weather_data, location)
-    return {"message": f"已开始处理 {location} 的天气数据"}
-
-
-# 启动服务器
 if __name__ == "__main__":
-    import asyncio
-
-    print("🚀 启动 LangChain 天气智能体 API 服务")
+    print("\n🚀 LangChain Agent API Server")
     print("=" * 50)
-    print("API 文档：http://localhost:8000/docs")
-    print("健康检查：http://localhost:8000/health")
-    print("天气查询：http://localhost:8000/weather/北京")
+    print(f"服务器运行在 http://localhost:{PORT}")
+    print(f"API 文档: http://localhost:{PORT}/")
+    print("=" * 50)
+    print("\n可用工具:")
+    print("  - get_weather: 查询天气预报")
+    print("  - calculate: 数学计算")
+
+    print("\n示例请求:")
+    print(f'curl -X POST http://localhost:{PORT}/chat \\')
+    print('  -H "Content-Type: application/json" \\')
+    print('  -d \'{"message": "北京明天的天气怎么样？"}\'')
+
+    print("\nSSE 流式请求:")
+    print(f'curl -X POST http://localhost:{PORT}/chat/stream \\')
+    print('  -H "Content-Type: application/json" \\')
+    print('  -H "Accept: text/event-stream" \\')
+    print('  -d \'{"message": "北京明天的天气怎么样？"}\'')
     print("=" * 50)
 
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=PORT, log_level="info")

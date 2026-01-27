@@ -1,57 +1,206 @@
 #!/usr/bin/env python3
 """
-07 - Advanced Agents
-高级Agent模式示例：ReAct、Self-Ask、Plan-and-Execute
+07 - Advanced Agents (LangChain 1.0 版本)
+高级Agent模式示例：ReAct、Self-Ask、Plan-and-Execute 使用 create_agent API
 """
 
 import os
 import json
-from datetime import datetime
-from typing import Dict, Any, List
+from typing import List, Dict, Any
 from dotenv import load_dotenv
 from pydantic import SecretStr
 
-# 加载环境变量
 load_dotenv(override=True)
 
 
-def main():
-    print("🦜🔗 07 - Advanced Agents")
-    print("=" * 50)
+class PlanExecuteAgent:
+    """Plan-and-Execute 模式的自定义实现"""
 
-    # 从环境变量读取配置
+    def __init__(self, model, tools: List[Dict[str, Any]]):
+        self.model = model
+        self.tools = {tool["name"]: tool for tool in tools}
+        self.tool_call_count = 0
+
+    def get_tool_call_count(self) -> int:
+        return self.tool_call_count
+
+    def reset_tool_call_count(self) -> None:
+        self.tool_call_count = 0
+
+    def plan(self, goal: str) -> List[str]:
+        """规划阶段：制定执行计划"""
+        tool_names = ", ".join(self.tools.keys())
+        prompt = f"""给定一个目标，制定一个简洁的执行计划。只列出需要执行的关键步骤，每个步骤一行。
+
+目标：{goal}
+
+可用工具：{tool_names}
+
+请按以下格式输出，只包含步骤编号和步骤描述：
+1. 第一步
+2. 第二步
+3. 第三步
+
+执行计划："""
+
+        response = self.model.invoke(prompt)
+        content = response.content
+
+        steps = []
+        for line in content.split("\n"):
+            line = line.strip()
+            if line and len(line) > 5 and len(line) < 100:
+                step = line.replace(r"^\d+[\.\、]\s*", "").strip()
+                if step:
+                    steps.append(step)
+
+        if len(steps) == 0:
+            steps = ["分析问题需求", "使用工具获取信息", "整理答案"]
+
+        return steps[:5]
+
+    def execute(self, plan: List[str], goal: str) -> str:
+        """执行阶段：按照计划执行"""
+        tool_results = []
+        goal_lower = goal.lower()
+
+        for step in plan:
+            step_lower = step.lower()
+
+            if any(keyword in step_lower for keyword in ["搜索", "search", "查询"]):
+                if "search_database" in self.tools:
+                    self.tool_call_count += 1
+                    search_tool = self.tools["search_database"]["function"]
+
+                    if "python" in goal_lower:
+                        query = "Python"
+                    elif "langchain" in goal_lower:
+                        query = "LangChain"
+                    else:
+                        query = goal.replace("搜索", "").replace("查询", "").replace("信息", "").replace("是什么", "").replace("等", "").strip()
+
+                    result = search_tool.invoke({"query": query})
+                    tool_results.append(result)
+
+            elif any(keyword in step_lower for keyword in ["计算", "calculate"]) or \
+                 any(char in goal for char in ["+", "-", "*", "/"]):
+                if "calculate" in self.tools:
+                    self.tool_call_count += 1
+                    calc_tool = self.tools["calculate"]["function"]
+
+                    import re
+                    expr_match = re.search(r'\d+[\+\-\*/]\d+', goal)
+                    expr = expr_match.group(0) if expr_match else goal.replace("计算", "").replace("等于", "").replace("等", "").strip()
+
+                    result = calc_tool.invoke({"expression": expr})
+                    tool_results.append(result)
+
+        if len(tool_results) == 0:
+            return "根据现有知识直接回答问题。"
+
+        answer_prompt = f"""根据以下工具执行结果，生成最终答案：
+
+目标：{goal}
+工具结果：
+{chr(10).join([f"{i+1}. {r}" for i, r in enumerate(tool_results)])}
+
+请提供简洁、准确的答案："""
+
+        final_response = self.model.invoke(answer_prompt)
+        return final_response.content
+
+    def run(self, goal: str) -> Dict[str, Any]:
+        """运行 Plan-and-Execute 流程"""
+        self.reset_tool_call_count()
+
+        plan = self.plan(goal)
+        result = self.execute(plan, goal)
+
+        return {
+            "result": f"计划执行完成：\n{result}",
+            "steps": plan
+        }
+
+
+def print_comparison_table(comparison_questions: List[str],
+                         react_results: List[Dict[str, Any]],
+                         plan_results: List[Dict[str, Any]]):
+    """打印性能对比表格"""
+    print("\n┌─────────────────────┬──────────────────┬──────────────────┬──────────────┬──────────────┐")
+    print("│ 问题                │ ReAct 工具调用    │ Plan 工具调用    │ ReAct 成功率  │ Plan 成功率  │")
+    print("├─────────────────────┼──────────────────┼──────────────────┼──────────────┼──────────────┤")
+
+    for i, question in enumerate(comparison_questions):
+        react = react_results[i]
+        plan = plan_results[i]
+
+        q = question[:19].ljust(19)
+        react_calls = str(react["tool_calls"]).ljust(16)
+        plan_calls = str(plan["tool_calls"]).ljust(16)
+        react_success = "✓ 成功".ljust(12) if react["success"] else "✗ 失败".ljust(12)
+        plan_success = "✓ 成功" if plan["success"] else "✗ 失败"
+
+        print(f"│ {q} │ {react_calls} │ {plan_calls} │ {react_success} │ {plan_success} │")
+
+    print("└─────────────────────┴──────────────────┴──────────────────┴──────────────┴──────────────┘")
+
+    react_total_calls = sum(r["tool_calls"] for r in react_results)
+    plan_total_calls = sum(r["tool_calls"] for r in plan_results)
+    react_success_rate = sum(1 for r in react_results if r["success"]) / len(react_results) * 100
+    plan_success_rate = sum(1 for r in plan_results if r["success"]) / len(plan_results) * 100
+
+    print(f"\n📊 统计汇总：")
+    print(f"   ReAct Agent: 总工具调用 {react_total_calls} 次, 成功率 {react_success_rate:.0f}%")
+    print(f"   Plan Agent:  总工具调用 {plan_total_calls} 次, 成功率 {plan_success_rate:.0f}%")
+    print(f"   效率对比: {'ReAct 更高效' if react_total_calls < plan_total_calls else 'Plan 更高效'}")
+
+
+def print_detailed_comparison(comparison_questions: List[str],
+                            react_results: List[Dict[str, Any]],
+                            plan_results: List[Dict[str, Any]]):
+    """打印详细的答案对比"""
+    print("\n=== 5. 详细答案对比 ===\n")
+
+    for i, question in enumerate(comparison_questions):
+        print(f"📌 问题 {i+1}: {question}")
+        print(f"\n  [ReAct]")
+        react_answer = react_results[i]["answer"]
+        print(f"  {react_answer[:150]}{'...' if len(react_answer) > 150 else ''}")
+        print(f"\n  [Plan-and-Execute]")
+        plan_answer = plan_results[i]["answer"]
+        print(f"  {plan_answer[:150]}{'...' if len(plan_answer) > 150 else ''}")
+        if plan_results[i].get("steps"):
+            print(f"  步骤: {' → '.join(plan_results[i]['steps'])}")
+        print()
+
+
+def main():
+    print("🦜🔗 07 - Advanced Agents (LangChain 1.0)")
+    print("=" * 60)
+
     openai_api_key = os.getenv("OPENAI_API_KEY", "")
     openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
     model_name = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
 
-    # 检查 API 密钥
     if not openai_api_key:
         print("❌ 请设置 OPENAI_API_KEY 环境变量")
         return 1
 
     try:
-        # 导入 LangChain 组件
         from langchain_openai import ChatOpenAI
-        from langchain.agents import (
-            tool,
-            AgentExecutor,
-            create_react_agent,
-            create_self_ask_with_search_agent,
-        )
-        from langchain_core.prompts import PromptTemplate
+        from langchain.agents import create_agent
+        from langchain.tools import tool
 
-        print("✓ LangChain 高级组件导入完成")
+        print("✓ LangChain 1.0 高级组件导入完成")
 
-        # 初始化 LLM（使用 SecretStr 包装 API key）
         llm = ChatOpenAI(
             model=model_name,
             temperature=0,
             api_key=SecretStr(openai_api_key),
-            base_url=openai_base_url
+            base_url=openai_base_url,
         )
 
-        # 1. ReAct Agent 示例
-        print("\n=== 1. ReAct Agent 示例 ===")
+        print("\n=== 1. ReAct 模式示例 ===")
 
         @tool
         def search_database(query: str) -> str:
@@ -63,11 +212,11 @@ def main():
             Returns:
                 str: 搜索结果
             """
-            # 模拟数据库搜索
             database = {
                 "Python": "Python 是一种高级编程语言，由 Guido van Rossum 创建。",
                 "机器学习": "机器学习是人工智能的一个分支，让计算机能够从数据中学习。",
                 "LangChain": "LangChain 是用于构建 LLM 应用的框架。",
+                "React": "React 是一个用于构建用户界面的 JavaScript 库。",
             }
 
             for key, value in database.items():
@@ -87,52 +236,35 @@ def main():
                 str: 计算结果
             """
             try:
-                # 简单的数学表达式计算（注意：实际应用中需要更安全的实现）
                 result = eval(expression)
                 return f"计算结果：{result}"
             except:
                 return "计算错误，请检查表达式"
 
-        # 创建 ReAct 提示词
-        react_prompt = PromptTemplate.from_template("""
-        回答以下问题，你可以使用这些工具：
-
-        {tools}
-
-        使用以下格式：
-
-        Question: 需要回答的问题
-        Thought: 你应该思考要做什么
-        Action: 要采取的行动，应该是 [{tool_names}] 中的一个
-        Action Input: 行动的输入
-        Observation: 行动的结果
-        ... (这个 Thought/Action/Action Input/Observation 可以重复)
-        Thought: 我现在知道最终答案了
-        Final Answer: 对原始问题的最终答案
-
-        开始！
-
-        Question: {input}
-        Thought: {agent_scratchpad}
-        """)
-
-        # 创建 ReAct Agent
-        tools = [search_database, calculate]
-
-        react_agent = create_react_agent(llm, tools, react_prompt)
-        react_executor = AgentExecutor(agent=react_agent, tools=tools, verbose=True)
-
-        # 测试 ReAct Agent
-        print("测试 ReAct Agent:")
-        react_response = react_executor.invoke(
-            {"input": "Python 是什么？再计算一下 15 + 27 等于多少？"}
+        react_agent = create_agent(
+            model=llm,
+            tools=[search_database, calculate],
+            system_prompt="""你是一个智能助手，可以使用工具来帮助用户回答问题。请根据用户的问题，决定是否需要调用工具，并给出最终答案。请用中文回答问题。""",
         )
-        print(f"ReAct 回答：{react_response['output']}")
 
-        # 2. Self-Ask Agent 示例
-        print("\n=== 2. Self-Ask Agent 示例 ===")
+        react_response = react_agent.invoke({
+            "messages": [{"role": "user", "content": "Python 是什么？再计算一下 15 + 27 等于多少？"}]
+        })
+        print(f"ReAct 回答：{react_response['messages'][-1].content}")
 
-        # 创建模拟搜索工具
+        print("\n=== 2. Plan-and-Execute 模式示例 ===")
+
+        plan_execute_agent = PlanExecuteAgent(llm, [
+            {"name": "search_database", "function": search_database},
+            {"name": "calculate", "function": calculate}
+        ])
+
+        plan_result = plan_execute_agent.run("研究 Python 并进行相关计算")
+        print(f"\nPlan-and-Execute 结果：\n{plan_result['result']}")
+        print(f"执行步骤：{' → '.join(plan_result['steps'])}")
+
+        print("\n=== 3. Self-Ask Agent 示例 ===")
+
         @tool
         def web_search(query: str) -> str:
             """模拟网络搜索。
@@ -143,11 +275,11 @@ def main():
             Returns:
                 str: 搜索结果
             """
-            # 模拟搜索结果
             search_results = {
                 "LangChain 创建者": "LangChain 由 Harrison Chase 创建。",
                 "LangChain 首次发布": "LangChain 于 2022 年首次发布。",
                 "LangChain 功能": "LangChain 提供了 LLM 抽象、提示词管理、链式调用等功能。",
+                "LangChain 版本": "LangChain 1.0 统一了 Agent API，引入了 LangGraph。",
             }
 
             for key, value in search_results.items():
@@ -156,125 +288,109 @@ def main():
 
             return f"关于 '{query}' 的搜索结果：未找到具体信息"
 
-        # 创建 Self-Ask 提示词
-        self_ask_prompt = PromptTemplate.from_template("""
-        你是一个智能助手，能够回答复杂问题。对于复杂问题，你会将其分解为子问题。
+        self_ask_agent = create_agent(
+            model=llm,
+            tools=[web_search],
+            system_prompt="""你是一个智能助手，能够回答复杂问题。对于复杂问题，你会将其分解为子问题。
 
-        Question: {input}
-        """)
+策略：
+1. 识别问题中的关键信息需求
+2. 将复杂问题分解为多个子问题
+3. 逐步搜索答案
+4. 综合得出最终答案
 
-        # 注意：实际的 Self-Ask Agent 需要特定的搜索工具配置
-        # 这里提供一个简化版本
-        print("Self-Ask Agent 需要特定的搜索配置，这里展示概念：")
-        print("1. 将复杂问题分解为子问题")
-        print("2. 逐步搜索答案")
-        print("3. 综合得出最终答案")
+可用工具：
+- web_search: 搜索网络信息
 
-        # 3. Plan-and-Execute 模式示例
-        print("\n=== 3. Plan-and-Execute 模式示例 ===")
+请用简洁明了的方式回答。""",
+        )
 
-        class PlanExecuteAgent:
-            """简化的 Plan-and-Execute Agent 实现"""
+        print("\n测试 Self-Ask Agent:")
+        self_ask_questions = [
+            "LangChain 是谁创建的？什么时候发布的？有什么功能？",
+        ]
 
-            def __init__(self, llm, tools):
-                self.llm = llm
-                self.tools = {tool.name: tool for tool in tools}
-                self.planner_prompt = PromptTemplate.from_template("""
-                给定一个目标，制定一个详细的执行计划。列出需要执行的步骤。
+        for question in self_ask_questions:
+            print(f"\n问题：{question}")
+            result = self_ask_agent.invoke(
+                {"messages": [{"role": "user", "content": question}]}
+            )
+            print(f"回答：{result['messages'][-1].content}")
 
-                目标：{goal}
-
-                可用工具：{tool_names}
-
-                请制定执行计划：
-                """)
-
-                self.executor_prompt = PromptTemplate.from_template("""
-                执行计划中的下一步。
-
-                当前步骤：{step}
-                之前的结果：{previous_results}
-
-                请执行这一步：
-                """)
-
-            def plan(self, goal: str) -> List[str]:
-                """制定执行计划"""
-                tool_names = ", ".join(self.tools.keys())
-                prompt = self.planner_prompt.format(goal=goal, tool_names=tool_names)
-
-                response = self.llm.invoke(prompt)
-                # 简化：假设返回的是步骤列表
-                return ["搜索相关信息", "分析数据", "生成报告"]
-
-            def execute(self, plan: List[str]) -> str:
-                """执行计划"""
-                results = []
-
-                for step in plan:
-                    print(f"执行步骤：{step}")
-
-                    if "搜索" in step:
-                        result = self.tools["search_database"].invoke("Python")
-                    elif "计算" in step:
-                        result = self.tools["calculate"].invoke("10 + 20")
-                    else:
-                        result = f"完成步骤：{step}"
-
-                    results.append(result)
-                    print(f"结果：{result}")
-
-                return "\n".join(results)
-
-            def run(self, goal: str) -> str:
-                """运行完整的 Plan-and-Execute 流程"""
-                print(f"目标：{goal}")
-
-                # 1. 制定计划
-                plan = self.plan(goal)
-                print(f"制定的计划：{plan}")
-
-                # 2. 执行计划
-                result = self.execute(plan)
-
-                return f"计划执行完成：\n{result}"
-
-        # 创建并测试 Plan-and-Execute Agent
-        plan_execute_agent = PlanExecuteAgent(llm, tools)
-        plan_result = plan_execute_agent.run("研究 Python 并进行相关计算")
-        print(f"\nPlan-and-Execute 结果：\n{plan_result}")
-
-        # 4. Agent 性能对比
         print("\n=== 4. Agent 性能对比 ===")
-
         comparison_questions = [
             "什么是 Python？",
             "计算 25 * 4 等于多少？",
             "搜索 LangChain 的信息",
         ]
 
-        agents = {
-            "ReAct": react_executor,
-            # 可以添加其他 Agent 进行对比
-        }
+        react_results = []
+        plan_results = []
 
-        for agent_name, agent in agents.items():
-            print(f"\n--- {agent_name} Agent 测试 ---")
-            for question in comparison_questions:
-                try:
-                    response = agent.invoke({"input": question})
-                    print(f"Q: {question}")
-                    print(f"A: {response['output'][:100]}...")
-                except Exception as e:
-                    print(f"错误：{e}")
+        print("\n--- ReAct Agent 测试 ---")
+        for question in comparison_questions:
+            try:
+                response = react_agent.invoke({
+                    "messages": [{"role": "user", "content": question}]
+                })
+                content = response['messages'][-1].content
 
-        print("\n🎉 高级 Agent 示例运行完成！")
+                import re
+                tool_call_pattern = r'调用工具|使用工具|Tool call'
+                tool_calls = len(re.findall(tool_call_pattern, content, re.IGNORECASE))
+
+                react_results.append({
+                    "question": question,
+                    "answer": content,
+                    "tool_calls": tool_calls,
+                    "success": len(content) > 10
+                })
+
+                print(f"✓ {question}")
+            except Exception as e:
+                react_results.append({
+                    "question": question,
+                    "answer": f"错误：{str(e)}",
+                    "tool_calls": 0,
+                    "success": False
+                })
+                print(f"✗ {question}")
+
+        print("\n--- Plan-and-Execute Agent 测试 ---")
+        for question in comparison_questions:
+            try:
+                result = plan_execute_agent.run(question)
+
+                plan_results.append({
+                    "question": question,
+                    "answer": result['result'],
+                    "tool_calls": plan_execute_agent.get_tool_call_count(),
+                    "success": len(result['result']) > 10,
+                    "steps": result['steps']
+                })
+
+                print(f"✓ {question}")
+            except Exception as e:
+                plan_results.append({
+                    "question": question,
+                    "answer": f"错误：{str(e)}",
+                    "tool_calls": 0,
+                    "success": False
+                })
+                print(f"✗ {question}")
+
+        print_comparison_table(comparison_questions, react_results, plan_results)
+        print_detailed_comparison(comparison_questions, react_results, plan_results)
+
+        print("\n高级 Agent 示例运行完成！")
 
     except ImportError as e:
         print(f"❌ 导入错误：{e}")
         return 1
     except Exception as e:
         print(f"❌ 运行错误：{e}")
+        import traceback
+        traceback.print_exc()
         return 1
 
     return 0

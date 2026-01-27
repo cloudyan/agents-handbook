@@ -78,3 +78,5 @@ temp/
 anaconda_projects
 reports/*
 !reports/*.md
+chroma_db
+.langgraph_api

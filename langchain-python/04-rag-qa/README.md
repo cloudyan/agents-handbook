@@ -1,222 +1,247 @@
-# 04 - RAG QA
+# 04 - RAG QA (检索增强问答)
 
-学习检索增强生成（RAG）技术，通过文档检索来提高问答的准确性。
+## 📚 示例说明
 
-## 文件说明
+本示例实现了完整的 RAG（检索增强生成）问答系统，参考 TypeScript 版本实现。
 
-- `rag_qa.ipynb` - Jupyter Notebook 版本，包含完整的 RAG 系统演示
-- `rag_qa.py` - Python 脚本版本，核心 RAG 功能演示
+## ✨ 主要特性
 
-## 运行方法
+### 🌐 实时文档获取
+- 从 LangChain 官方文档网站获取内容
+- 使用 BeautifulSoup 解析 HTML
+- 自动降级到备用文档
 
-### Jupyter Notebook（推荐）
+### 🤖 Ollama 嵌入
+- 使用本地 Ollama 服务
+- 模型：`nomic-embed-text`
+- 无需调用外部 API
 
-```bash
-jupyter lab langchain-python/04-rag-qa/
-```
+### 🗄️ Chroma 向量存储
+- 连接到 Docker 运行的 Chroma 服务
+- 集合名称：`rag-qa-demo`
+- 自动创建向量索引
 
-然后打开 `rag_qa.ipynb` 按顺序执行单元格。
+### 🔍 智能检索
+- 基于语义相似度检索
+- 返回最相关的 3 个文档片段
+- LCEL 链式调用
 
-### Python 脚本
+## 🚀 快速开始
+
+### 前置要求
+
+1. **Ollama 服务**
+   ```bash
+   # 安装 Ollama
+   curl -fsSL https://ollama.com/install.sh | sh
+
+   # 下载嵌入模型
+   ollama pull nomic-embed-text
+
+   # 启动服务
+   ollama serve
+   ```
+
+2. **Chroma 服务（Docker）**
+   ```bash
+   docker run -d \
+     -p 8000:8000 \
+     chromadb/chroma:latest
+   ```
+
+3. **环境变量配置**
+   ```bash
+   # .env 文件
+   OPENAI_API_KEY=your_api_key
+   OPENAI_BASE_URL=https://api.deepseek.com/v1
+   MODEL_NAME=deepseek-chat
+   ```
+
+### 运行示例
 
 ```bash
 cd langchain-python
-python 04-rag-qa/rag_qa.py
+uv run python 04-rag-qa/rag_qa.py
 ```
 
-## 学习目标
+## 📊 运行示例
 
-- 理解 RAG 的基本原理和优势
-- 掌握文档加载和预处理
-- 学习向量化存储和检索
-- 实现完整的 RAG 问答系统
-
-## 主要内容
-
-### 1. 文档准备和加载
-- 创建示例文档
-- 使用 TextLoader 加载本地文件
-- 支持多种文档格式（txt, pdf, html 等）
-
-### 2. 文档预处理
-- RecursiveCharacterTextSplitter 文档分割
-- 设置合适的 chunk_size 和 overlap
-- 保持文档的语义完整性
-
-### 3. 向量化存储
-- OpenAIEmbeddings 文本向量化
-- Chroma 向量数据库存储
-- 持久化存储支持
-
-### 4. 检索系统
-- 相似性搜索
-- 检索结果排序
-- 动态添加新文档
-
-### 5. RAG 问答链
-- RetrievalQA 链的创建
-- 自定义提示词模板
-- 源文档引用
-
-## 关键概念
-
-### RAG 工作流程
 ```
-文档 → 分割 → 向量化 → 存储 → 检索 → 生成回答
+问题: 关于 LangChain 你知道什么？
+--------------------------------------------------
+回答: LangChain 是一个用于快速构建由大语言模型（LLMs）驱动的智能体（agents）和应用程序的框架...
+
+问题: LangChain 提供哪些核心功能？
+--------------------------------------------------
+回答: 根据上下文，LangChain 提供的核心功能包括：预构建的代理架构、与多种大语言模型的集成...
+
+问题: 什么是机器学习？
+--------------------------------------------------
+回答: 无法回答。
 ```
 
-### 核心组件
-- **Document Loader**: 文档加载器
-- **Text Splitter**: 文档分割器
-- **Embeddings**: 文本向量化
-- **Vector Store**: 向量数据库
-- **Retriever**: 检索器
-- **RetrievalQA**: RAG 问答链
+## 🔧 配置选项
 
-## 配置参数
+### 代码配置
 
-### 文档分割参数
 ```python
+# 文档分割参数
 text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=500,        # 分块大小
-    chunk_overlap=50,      # 重叠大小
-    separators=["\n\n", "\n", " ", ""]  # 分割符优先级
+    chunk_size=500,      # 每块大小
+    chunk_overlap=50,   # 重叠大小
+)
+
+# 检索参数
+retriever = vector_store.as_retriever(search_kwargs={"k": 3})  # 返回 3 个结果
+
+# 嵌入模型
+embeddings = create_embedding_client(
+    use_ollama=True,
+    model_name="nomic-embed-text",  # 或 "mxbai-embed-large"
 )
 ```
 
-### 检索参数
+### 环境变量
+
+```env
+# Ollama 配置
+OLLAMA_BASE_URL=http://localhost:11434
+
+# OpenAI 配置（用于 LLM）
+OPENAI_API_KEY=your_key
+OPENAI_BASE_URL=https://api.deepseek.com/v1
+MODEL_NAME=deepseek-chat
+```
+
+## 📝 代码结构
+
 ```python
-retriever = vectorstore.as_retriever(
-    search_kwargs={"k": 3}  # 检索文档数量
+# 1. 获取文档
+response = requests.get(url)
+soup = BeautifulSoup(response.content, 'html.parser')
+body_text = soup.body.get_text()
+
+# 2. 分割文档
+chunks = text_splitter.split_text(body_text)
+
+# 3. 创建向量索引
+vector_store = Chroma.from_texts(
+    texts=chunks,
+    embedding=embeddings,
+    collection_name="rag-qa-demo",
 )
+
+# 4. 创建 RAG 链
+rag_chain = (
+    {"context": retriever | format_docs, "input": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+
+# 5. 问答
+result = rag_chain.invoke(question)
 ```
 
-### 提示词模板
-```python
-prompt_template = """
-基于以下上下文信息回答问题。如果上下文中没有相关信息，请说明。
+## 🎯 学习目标
 
-上下文：
-{context}
+通过本示例，你将学习：
 
-问题：{question}
+1. **RAG 原理**
+   - 检索：从向量库检索相关文档
+   - 增强：将检索到的文档作为上下文
+   - 生成：基于上下文生成答案
 
-请提供准确、详细的回答：
-"""
+2. **文档处理**
+   - 网页抓取和解析
+   - 文本分割和预处理
+   - 向量化存储
+
+3. **向量检索**
+   - 语义相似度检索
+   - Chroma 向量数据库
+   - Ollama 嵌入模型
+
+4. **LCEL 链式调用**
+   - 使用 `|` 操作符连接组件
+   - 自动处理数据流
+   - 易于调试和扩展
+
+## 🔍 故障排查
+
+### Ollama 连接失败
+
+```bash
+# 检查 Ollama 是否运行
+curl http://localhost:11434/api/tags
+
+# 启动 Ollama
+ollama serve
 ```
 
-## 最佳实践
+### Chroma 连接失败
 
-### 1. 文档分割
-- **chunk_size**: 500-1000 字符通常效果较好
-- **overlap**: 10-20% 的 chunk_size 作为重叠
-- **separators**: 按语义重要性排序
+```bash
+# 检查 Chroma 是否运行
+curl http://localhost:8000/api/v1/heartbeat
 
-### 2. 向量化
-- 使用高质量的嵌入模型（如 OpenAI embeddings）
-- 考虑嵌入成本和性能的平衡
-- 批量处理提高效率
-
-### 3. 检索策略
-- **k 值选择**: 3-5 个文档通常足够
-- **相似度阈值**: 过滤低相关性结果
-- **混合检索**: 结合关键词和语义检索
-
-### 4. 提示词设计
-- 明确指示基于上下文回答
-- 处理无相关信息的情况
-- 控制回答的详细程度
-
-## 应用场景
-
-### 知识库问答
-- 企业内部文档问答
-- 技术文档查询
-- 学术研究辅助
-
-### 内容生成
-- 基于资料的报告生成
-- 个性化内容推荐
-- 智能摘要生成
-
-### 客服支持
-- 产品文档问答
-- 常见问题自动回答
-- 技术支持辅助
-
-## 性能优化
-
-### 1. 存储优化
-- 定期清理过期文档
-- 使用压缩减少存储空间
-- 考虑分布式存储
-
-### 2. 检索优化
-- 建立文档索引
-- 缓存热门查询结果
-- 使用近似最近邻算法
-
-### 3. 生成优化
-- 限制上下文长度
-- 使用流式输出
-- 批量处理查询
-
-## 环境要求
-
-- Python ≥ 3.11
-- 已安装 requirements.txt 中的依赖
-- 已设置 OPENAI_API_KEY 环境变量
-- 足够的磁盘空间存储向量数据库
-
-## 预期输出
-
-```
-🦜🔗 04 - RAG QA
-========================================
-✓ LangChain 组件导入完成
-
-=== 1. 准备文档数据 ===
-✓ 示例文档创建完成
-
-=== 2. 加载和分割文档 ===
-✓ 加载了 2 个文档
-✓ 文档分割完成，共 4 个分块
-
-=== 3. 创建向量数据库 ===
-✓ 向量数据库创建完成
-
-=== 4. 创建 RAG 问答链 ===
-✓ RAG 问答链创建完成
-
-=== 5. 测试 RAG 问答 ===
-
-问题：Python 有哪些主要特点？
-回答：根据提供的文档，Python 的主要特点包括...
-[详细回答...]
-
-问题：LangChain 提供哪些核心功能？
-回答：根据提供的文档，LangChain 的核心功能包括...
-[详细回答...]
-
-=== 6. 添加新文档 ===
-✓ 添加了 1 个新的文档分块
-
-问题：什么是深度学习？
-回答：根据提供的文档，深度学习是机器学习的一个子领域...
-[详细回答...]
-
-🎉 RAG QA 示例运行成功！
+# 启动 Chroma
+docker run -d -p 8000:8000 chromadb/chroma:latest
 ```
 
-## 下一步
+### 文档获取失败
 
-完成这个示例后，可以继续学习：
-- 05 - Agent Weather（获取天气智能体）
-- 06 - API Deployment（FastAPI 部署）
+- 检查网络连接
+- 检查防火墙设置
+- 代码会自动使用备用文档
 
-## 扩展学习
+## 📚 相关文件
 
-- 尝试不同的向量数据库（FAISS、Pinecone 等）
-- 实现多文档源的 RAG 系统
-- 添加文档相关性评分
-- 实现增量更新和删除功能
+- `rag_qa.py` - 主程序
+- `IMPLEMENTATION.md` - 详细实现说明
+- `rag_qa.ipynb` - Jupyter Notebook（文档说明）
+
+## 🆚 与 TypeScript 版本对比
+
+| 特性 | Python | TypeScript |
+|------|--------|------------|
+| HTTP 客户端 | requests | axios |
+| HTML 解析 | BeautifulSoup | cheerio |
+| 嵌入模型 | Ollama | Ollama |
+| 向量存储 | Chroma | Chroma |
+| 链式调用 | LCEL | LCEL |
+
+## 🎓 扩展练习
+
+1. **添加更多文档源**
+   - 支持本地文件
+   - 支持多种格式（PDF、Markdown）
+   - 添加文档更新机制
+
+2. **改进检索质量**
+   - 尝试不同的分割参数
+   - 使用更高级的嵌入模型
+   - 添加重排序（Reranking）
+
+3. **添加缓存**
+   - 缓存向量索引
+   - 缓存嵌入结果
+   - 提升响应速度
+
+4. **支持多语言**
+   - 使用多语言嵌入模型
+   - 添加翻译功能
+   - 支持跨语言检索
+
+## 📖 参考资料
+
+- [LangChain RAG 文档](https://python.langchain.com/docs/tutorials/rag/)
+- [Ollama 官方文档](https://ollama.com/)
+- [Chroma 官方文档](https://docs.trychroma.com/)
+- [BeautifulSoup 文档](https://www.crummy.com/software/BeautifulSoup/)
+
+---
+
+**状态**: ✅ 完全可用
+**依赖**: Ollama, Chroma (Docker)
+**参考**: TypeScript 版本 `src/04-rag-qa.ts`

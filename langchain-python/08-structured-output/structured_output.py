@@ -11,6 +11,7 @@ from datetime import datetime
 from dataclasses import asdict
 from dotenv import load_dotenv
 from pydantic import SecretStr
+import sys
 
 load_dotenv(override=True)
 
@@ -22,14 +23,11 @@ def example_1_basic_extraction():
     print("="*60)
 
     from pydantic import BaseModel, Field, field_validator
-    from langchain_openai import ChatOpenAI
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.output_parsers import PydanticOutputParser
 
-    # 从环境变量读取配置
-    openai_api_key = os.getenv("OPENAI_API_KEY", "")
-    openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-    model_name = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from clients import create_model_client
 
     class UserInfo(BaseModel):
         """用户信息模型"""
@@ -45,12 +43,7 @@ def example_1_basic_extraction():
                 raise ValueError('邮箱必须包含 @ 符号')
             return v
 
-    llm = ChatOpenAI(
-        model=model_name,
-        temperature=0,
-        api_key=SecretStr(openai_api_key),
-        base_url=openai_base_url
-    )
+    llm = create_model_client(temperature=0)
     parser = PydanticOutputParser(pydantic_object=UserInfo)
 
     prompt = ChatPromptTemplate.from_messages([
@@ -86,14 +79,11 @@ def example_2_nested_models():
     print("="*60)
 
     from pydantic import BaseModel, Field
-    from langchain_openai import ChatOpenAI
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.output_parsers import PydanticOutputParser
 
-    # 从环境变量读取配置
-    openai_api_key = os.getenv("OPENAI_API_KEY", "")
-    openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-    model_name = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from clients import create_model_client
 
     class Address(BaseModel):
         """地址模型"""
@@ -107,12 +97,7 @@ def example_2_nested_models():
         industry: str = Field(description="所属行业")
         address: Address = Field(description="公司地址")
 
-    llm = ChatOpenAI(
-        model=model_name,
-        temperature=0,
-        api_key=SecretStr(openai_api_key),
-        base_url=openai_base_url
-    )
+    llm = create_model_client(temperature=0)
     parser = PydanticOutputParser(pydantic_object=Company)
 
     prompt = ChatPromptTemplate.from_messages([
@@ -149,14 +134,11 @@ def example_3_event_extraction():
 
     from pydantic import BaseModel, Field
     from typing import List
-    from langchain_openai import ChatOpenAI
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.output_parsers import PydanticOutputParser
 
-    # 从环境变量读取配置
-    openai_api_key = os.getenv("OPENAI_API_KEY", "")
-    openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-    model_name = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from clients import create_model_client
 
     class Event(BaseModel):
         """事件模型"""
@@ -166,12 +148,7 @@ def example_3_event_extraction():
         participants: List[str] = Field(description="参与人员")
         description: str = Field(description="事件描述")
 
-    llm = ChatOpenAI(
-        model=model_name,
-        temperature=0,
-        api_key=SecretStr(openai_api_key),
-        base_url=openai_base_url
-    )
+    llm = create_model_client(temperature=0)
     parser = PydanticOutputParser(pydantic_object=Event)
 
     prompt = ChatPromptTemplate.from_messages([
@@ -210,14 +187,11 @@ def example_4_product_extraction():
     from pydantic import BaseModel, Field
     from typing import Optional, List
     from enum import Enum
-    from langchain_openai import ChatOpenAI
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.output_parsers import PydanticOutputParser
 
-    # 从环境变量读取配置
-    openai_api_key = os.getenv("OPENAI_API_KEY", "")
-    openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-    model_name = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from clients import create_model_client
 
     class ProductCategory(str, Enum):
         """产品类别枚举"""
@@ -234,12 +208,7 @@ def example_4_product_extraction():
         description: Optional[str] = Field(default=None, description="产品描述")
         features: List[str] = Field(description="产品特性列表")
 
-    llm = ChatOpenAI(
-        model=model_name,
-        temperature=0,
-        api_key=SecretStr(openai_api_key),
-        base_url=openai_base_url
-    )
+    llm = create_model_client(temperature=0)
     parser = PydanticOutputParser(pydantic_object=Product)
 
     prompt = ChatPromptTemplate.from_messages([
@@ -276,26 +245,18 @@ def example_5_batch_extraction():
     print("="*60)
 
     from pydantic import BaseModel, Field
-    from langchain_openai import ChatOpenAI
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.output_parsers import PydanticOutputParser
 
-    # 从环境变量读取配置
-    openai_api_key = os.getenv("OPENAI_API_KEY", "")
-    openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-    model_name = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from clients import create_model_client
 
     class SimpleInfo(BaseModel):
         """简单信息模型"""
         name: str = Field(description="名称")
         value: str = Field(description="值")
 
-    llm = ChatOpenAI(
-        model=model_name,
-        temperature=0,
-        api_key=SecretStr(openai_api_key),
-        base_url=openai_base_url
-    )
+    llm = create_model_client(temperature=0)
     parser = PydanticOutputParser(pydantic_object=SimpleInfo)
 
     prompt = ChatPromptTemplate.from_messages([
@@ -336,15 +297,12 @@ def example_6_comparison():
     print("="*60)
 
     from pydantic import BaseModel, Field
-    from langchain_openai import ChatOpenAI
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.output_parsers import PydanticOutputParser
     import re
 
-    # 从环境变量读取配置
-    openai_api_key = os.getenv("OPENAI_API_KEY", "")
-    openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-    model_name = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from clients import create_model_client
 
     class ContactInfo(BaseModel):
         """联系信息模型"""
@@ -375,12 +333,7 @@ def example_6_comparison():
 
     print("\n方法 2: 结构化输出")
     try:
-        llm = ChatOpenAI(
-            model=model_name,
-            temperature=0,
-            api_key=SecretStr(openai_api_key),
-            base_url=openai_base_url
-        )
+        llm = create_model_client(temperature=0)
         parser = PydanticOutputParser(pydantic_object=ContactInfo)
 
         prompt = ChatPromptTemplate.from_messages([

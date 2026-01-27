@@ -204,11 +204,70 @@ async function advancedAgents() {
 
   const planExecuteAgent = new PlanExecuteAgent(model, tools as DynamicStructuredTool<any, any>[]);
   const planResult = await planExecuteAgent.run("研究 Python 并进行相关计算");
-  console.log(`\nPlan-and-Execute 结果：\n${planResult.result}`);
-  console.log(`执行步骤：${planResult.steps.join("\n → ")}`);
+console.log(`\nPlan-and-Execute 结果：\n${planResult.result}`);
+  console.log(`执行步骤：${planResult.steps.join(" → ")}`);
 
 
-  console.log("\n=== 3. Agent 性能对比 ===");
+  console.log("\n=== 3. Self-Ask Agent 示例 ===");
+
+  const webSearch = tool(
+    async (input: { query: string }) => {
+      const searchResults: Record<string, string> = {
+        "LangChain 创建者": "LangChain 由 Harrison Chase 创建。",
+        "LangChain 首次发布": "LangChain 于 2022 年首次发布。",
+        "LangChain 功能": "LangChain 提供了 LLM 抽象、提示词管理、链式调用等功能。",
+        "LangChain 版本": "LangChain 1.0 统一了 Agent API，引入了 LangGraph。",
+      };
+
+      for (const [key, value] of Object.entries(searchResults)) {
+        if (input.query.toLowerCase().includes(key.toLowerCase())) {
+          return value;
+        }
+      }
+
+      return `关于 '${input.query}' 的搜索结果：未找到具体信息`;
+    },
+    {
+      name: "web_search",
+      description: "模拟网络搜索",
+      schema: z.object({
+        query: z.string().describe("搜索查询"),
+      }),
+    }
+  );
+
+  const selfAskAgent = createAgent({
+    model,
+    tools: [webSearch],
+    systemPrompt: `你是一个智能助手，能够回答复杂问题。对于复杂问题，你会将其分解为子问题。
+
+策略：
+1. 识别问题中的关键信息需求
+2. 将复杂问题分解为多个子问题
+3. 逐步搜索答案
+4. 综合得出最终答案
+
+可用工具：
+- web_search: 搜索网络信息
+
+请用简洁明了的方式回答。`,
+  });
+
+  console.log("\n测试 Self-Ask Agent:");
+  const selfAskQuestions = [
+    "LangChain 是谁创建的？什么时候发布的？有什么功能？",
+  ];
+
+  for (const question of selfAskQuestions) {
+    console.log(`\n问题：${question}`);
+    const result = await selfAskAgent.invoke({
+      messages: [new HumanMessage(question)],
+    });
+    console.log(`回答：${result.messages[result.messages.length - 1].content}`);
+  }
+
+
+  console.log("\n=== 4. Agent 性能对比 ===");
   const comparisonQuestions = [
     "什么是 Python？",
     "计算 25 * 4 等于多少？",
@@ -304,7 +363,7 @@ async function advancedAgents() {
   console.log(`   Plan Agent:  总工具调用 ${planTotalCalls} 次, 成功率 ${planSuccessRate}%`);
   console.log(`   效率对比: ${reactTotalCalls < planTotalCalls ? "ReAct 更高效" : "Plan 更高效"}`);
 
-  console.log("\n=== 5. 详细答案对比 ===\n");
+  console.log("\n=== 6. 详细答案对比 ===\n");
 
   for (let i = 0; i < comparisonQuestions.length; i++) {
     console.log(`📌 问题 ${i + 1}: ${comparisonQuestions[i]}`);

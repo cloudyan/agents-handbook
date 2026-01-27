@@ -26,8 +26,8 @@
 ## 运行方法
 
 ```bash
-cd langchain-python/08-structured-output
-python structured_output.py
+cd langchain-python
+python 08-structured-output/structured_output.py
 ```
 
 ## 核心示例

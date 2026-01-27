@@ -1,143 +1,252 @@
-# Python 示例
+# 🦜🔗 LangChain Python 示例
 
-使用 uv 管理环境和依赖的 LangChain Python 示例集合。
+LangChain Python 实战示例，涵盖从基础到高级的所有功能。
 
-## 快速开始
+## 📁 项目结构
 
-### 1. 安装 uv
-
-```bash
-# macOS/Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Windows
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-# 使用 pip 安装
-pip install uv
+```
+langchain-python/
+├── 00-env/                    # 环境自检
+├── 01-hello-chain/            # 最简 LLMChain
+├── 02-prompt-template/        # 提示词模板
+├── 03-memory-chat/            # 记忆聊天
+├── 04-rag-qa/                 # RAG 问答系统
+├── 05-agent-weather/          # 天气智能体
+├── 06-api-deployment/         # API 部署
+├── 07-advanced-agents/        # 高级智能体
+├── 08-structured-output/      # 结构化输出
+├── 09-multi-agent/            # 多智能体系统
+├── 10-streaming-chat/         # 流式聊天
+├── 11-production-tracing/     # 生产级追踪
+├── clients/                   # 公共客户端模块
+├── utils/                     # 公共工具模块
+├── test_all_examples.py       # 测试脚本
+├── generate_notebooks.py      # 生成 Notebook 脚本
+└── REFACTORING_SUMMARY.md     # 重构总结
 ```
 
-### 2. 创建虚拟环境
+## 🚀 快速开始
+
+### 1. 安装依赖
 
 ```bash
 cd langchain-python
-uv venv --python 3.11
-source .venv/bin/activate  # Linux/macOS
-# 或 .venv\Scripts\activate  # Windows
-```
-
-### 3. 安装依赖
-
-```bash
 uv sync
 ```
 
-### 4. 配置环境变量
+### 2. 配置环境变量
+
+复制 `.env.example` 为 `.env` 并配置 API 密钥：
 
 ```bash
 cp .env.example .env
-# 编辑 .env 文件，设置你的 API 密钥
 ```
 
-### 5. 验证环境
+编辑 `.env` 文件：
+
+```env
+OPENAI_API_KEY=your_api_key_here
+OPENAI_BASE_URL=https://api.deepseek.com/v1
+MODEL_NAME=deepseek-chat
+```
+
+### 3. 运行示例
+
+#### 运行 Python 脚本
 
 ```bash
-python 00-env/simple_check.py
+# 基础示例
+uv run python 04-rag-qa/rag_qa.py
+uv run python 05-agent-weather/agent_weather.py
+
+# LangChain 1.0 新版
+uv run python 05-agent-weather/agent_weather_v2.py
+
+# 启动服务
+uv run python 06-api-deployment/main.py
+uv run python 10-streaming-chat/chat_server.py
 ```
 
-### 6. 运行示例
+#### 运行 Jupyter Notebook
 
 ```bash
-# 使用 Jupyter Lab
-jupyter lab 01-hello-chain/
+# 启动 Jupyter Lab
+jupyter lab
 
-# 直接运行 Python 文件
-python 01-hello-chain/hello_chain.py
-python 05-agent-weather/agent_weather.py
-
-# 运行 API 服务
-python 06-api-deployment/main.py
+# 或使用 uv
+uv run jupyter lab
 ```
 
-## 开发工具
+在 Jupyter Lab 中打开对应的 `.ipynb` 文件查看文档说明。
+
+⚠️ **重要说明**：
+- Jupyter Notebook 主要用于查看文档和说明
+- 完整的可执行代码在 Python 脚本中
+- 建议使用 Python 脚本运行示例
+
+### 4. 运行测试
 
 ```bash
-# 代码格式化
-uv run black .
-uv run ruff check --fix .
+# 测试所有示例
+uv run python test_all_examples.py
 
-# 类型检查
-uv run mypy .
-
-# 运行测试
-uv run pytest
+# 重新生成所有 Notebook（仅包含文档说明）
+uv run python create_simple_notebooks.py
 ```
 
-## 目录结构
+## 📚 示例说明
 
+### 基础入门（01-03）
+
+| 编号 | 示例 | 关键词 | 难度 |
+|---|---|---|---|
+| 01 | Hello Chain | LLMChain | ⭐ |
+| 02 | Prompt Template | 模板渲染 | ⭐ |
+| 03 | Memory Chat | BufferWindowMemory | ⭐⭐ |
+
+### 核心应用（04-06）
+
+| 编号 | 示例 | 关键词 | 难度 |
+|---|---|---|---|
+| 04 | RAG QA | Chroma + 向量检索 | ⭐⭐ |
+| 05 | 天气智能体 | Tool + Agent | ⭐⭐⭐ |
+| 06 | API 部署 | FastAPI | ⭐⭐⭐ |
+
+### 进阶实战（07-11）
+
+| 编号 | 示例 | 关键词 | 难度 |
+|---|---|---|---|
+| 07 | 高级 Agent | ReAct / Plan-Execute | ⭐⭐⭐ |
+| 08 | 结构化输出 | Pydantic | ⭐⭐⭐ |
+| 09 | 多智能体 | Supervisor 模式 | ⭐⭐⭐⭐⭐ |
+| 10 | 流式聊天 | WebSocket | ⭐⭐⭐⭐ |
+| 11 | 生产追踪 | LangSmith | ⭐⭐⭐⭐⭐ |
+
+## 🎯 学习路径
+
+### 初学者
+1. 01-hello-chain → 02-prompt-template → 03-memory-chat
+2. 理解 Chain、Prompt 和 Memory 的基本概念
+
+### 进阶开发者
+1. 04-rag-qa → 05-agent-weather → 06-api-deployment
+2. 学习 RAG、Agent 和 API 部署
+
+### 高级工程师
+1. 07-advanced-agents → 08-structured-output → 09-multi-agent
+2. 10-streaming-chat → 11-production-tracing
+3. 掌握高级模式和最佳实践
+
+## 🔧 公共模块
+
+### clients/
+
+#### model_client.py
+```python
+from clients import create_model_client
+
+llm = create_model_client(
+    model_name="gpt-3.5-turbo",
+    temperature=0.7,
+    streaming=False
+)
 ```
-python/
-├── 00-env/              # 环境验证
-├── 01-hello-chain/      # 基础链
-├── 02-prompt-template/  # 提示词模板
-├── 03-memory-chat/      # 带记忆的对话
-├── 04-rag-qa/           # 检索增强问答
-├── 05-agent-weather/    # 天气智能体 🆕 v2 (LangChain 1.0)
-├── 06-api-deployment/   # API 部署
-├── 07-advanced-agents/  # 高级智能体 🆕 v2 (LangChain 1.0)
-├── 08-structured-output/ # 结构化输出
-├── 09-multi-agent/      # 多智能体协作 🆕 v2 (LangChain 1.0)
-├── 10-streaming-chat/   # 流式输出 + ChatUI
-├── 11-production-tracing/ # 生产级追踪
-├── pyproject.toml       # 项目配置
-└── requirements.txt     # 依赖列表
+
+#### embedding_client.py
+```python
+from clients import create_embedding_client
+
+embeddings = create_embedding_client(
+    model_name="text-embedding-ada-002",
+    use_fake=False  # 是否使用 FakeEmbeddings
+)
 ```
 
-## LangChain 版本说明
+#### tavily_client.py
+```python
+from clients import create_search_tool
 
-本项目提供两种 Agent 实现方式：
+search_tool = create_search_tool()
+```
 
-### 旧版 API (传统方式)
-- 使用 `create_tool_calling_agent`、`create_react_agent` 等分支函数
-- 需要手动配置 `AgentExecutor`、`ChatPromptTemplate`
-- 适合学习 Agent 原理和底层机制
-- 文件：`agent_weather.py`、`advanced_agents.py`、`multi_agent_system.py`
+### utils/
 
-### 新版 API (LangChain 1.0)
-- 使用统一的 `create_agent` API
-- 基于 LangGraph 底层架构
-- 内置记忆管理、自动 ReAct 循环
-- 更简洁，适合生产环境
-- 文件：`agent_weather_v2.py`、`advanced_agents_v2.py`、`multi_agent_system_v2.py`
+#### monitor.py
+```python
+from utils import PerformanceMonitor, CustomCallbackHandler, setup_langsmith
 
-### 快速对比
+monitor = PerformanceMonitor()
+monitor.start_tracking()
+# ... 执行代码 ...
+metrics = monitor.end_tracking("chain_name", True)
+```
+
+## ⚠️ 重要说明
+
+### API 兼容性
+
+某些 API（如 DeepSeek）可能不支持 embeddings 端点。代码会自动使用 FakeEmbeddings 作为替代。
+
+### LangChain 1.0 API
+
+推荐使用 LangChain 1.0 新 API：
 
 ```python
-# ❌ 旧版
-prompt = ChatPromptTemplate.from_messages([...])
-agent = create_tool_calling_agent(llm, tools, prompt)
-executor = AgentExecutor(agent=agent, tools=tools)
-result = executor.invoke({"input": "..."})
+# 新版 API（推荐）
+from langchain.agents import create_agent
 
-# ✅ 新版
-agent = create_agent(model=llm, tools=tools, system_prompt="...")
+agent = create_agent(
+    model=llm,
+    tools=[tool],
+    system_prompt="你是一个智能助手"
+)
 result = agent.invoke({"messages": [{"role": "user", "content": "..."}]})
 ```
 
-### 运行新版本示例
+### 环境变量
 
-```bash
-# Agent Weather (LangChain 1.0)
-python 05-agent-weather/agent_weather_v2.py
+确保配置以下环境变量：
 
-# Advanced Agents (LangChain 1.0)
-python 07-advanced-agents/advanced_agents_v2.py
-
-# Multi-Agent System (LangChain 1.0)
-python 09-multi-agent/multi_agent_system_v2.py
+```env
+OPENAI_API_KEY=your_api_key
+OPENAI_BASE_URL=your_base_url
+MODEL_NAME=your_model_name
 ```
 
-**注意**：新版本示例需要安装 `langgraph`：
+## 📝 代码规范
+
+- 所有注释使用中文
+- 使用公共模块减少重复代码
+- 完整的错误处理和日志记录
+- Python 版本：3.11+
+
+## 🧪 测试
+
 ```bash
-uv add langgraph
+# 运行所有测试
+uv run python test_all_examples.py
+
+# 测试单个示例
+uv run python 04-rag-qa/rag_qa.py
 ```
+
+## 🔄 与 TypeScript 版本对齐
+
+Python 版本与 TypeScript 版本保持一致：
+- 相同的公共模块结构
+- 相同的 API 设计
+- 相同的功能特性
+
+## 📚 相关文档
+
+- [LangChain 官方文档](https://python.langchain.com/)
+- [LangChain 1.0 升级指南](https://python.langchain.com/docs/versions/migrating_chains/)
+- [REFACTORING_SUMMARY.md](./REFACTORING_SUMMARY.md) - 详细重构总结
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 📄 许可证
+
+MIT License

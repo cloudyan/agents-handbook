@@ -1,0 +1,5 @@
+{
+  "python.autoComplete.extraPaths": [
+    "${workspaceFolder}/langchain-python/10-streaming-chat"
+  ]
+}

@@ -1,6 +1,7 @@
 import axios from "axios";
-import { tool } from "langchain";
+import { createAgent, tool } from "langchain";
 import * as z from "zod";
+import { HumanMessage } from "@langchain/core/messages";
 import { createModelClient } from "./clients/model";
 
 const getWeather = tool(
@@ -44,10 +45,29 @@ const getWeather = tool(
   }
 );
 
-// 天气智能体
 async function weatherAgent() {
   const model = createModelClient();
-  const modelWithTools = model.bindTools([getWeather]);
+  const tools = [getWeather];
+
+  const agent = createAgent({
+    model,
+    tools,
+    systemPrompt: `你是一个专业的天气助手智能体。你能够：
+
+1. 获取指定城市的天气信息
+2. 分析天气数据并提供建议
+3. 根据天气情况给出穿衣、出行建议
+
+可用工具：
+- get_weather: 获取天气数据
+
+工作流程：
+1. 理解用户需求
+2. 获取相关天气数据
+3. 分析数据并提供建议
+
+请用中文回答，保持友好和专业的语调。`,
+  });
 
   const questions = [
     "北京明天的天气怎么样？",
@@ -58,33 +78,17 @@ async function weatherAgent() {
     console.log(`\n用户问题: ${question}`);
     console.log("-".repeat(50));
 
-    const response = await modelWithTools.invoke(question);
-    const toolCalls = response.tool_calls || [];
+    try {
+      const response = await agent.invoke({
+        messages: [new HumanMessage(question)],
+      });
 
-    if (toolCalls.length > 0) {
-      for (const tool_call of toolCalls) {
-        console.log(`调用工具: ${tool_call.name}`);
-        console.log(`参数: ${JSON.stringify(tool_call.args)}`);
-
-        const toolResult = await getWeather.invoke(tool_call.args as any);
-        console.log(`工具结果: ${toolResult}`);
-
-        const finalResponse = await modelWithTools.invoke([
-          { role: "user", content: question },
-          response,
-          {
-            role: "tool",
-            tool_call_id: tool_call.id,
-            content: toolResult as any,
-          },
-        ]);
-
-        console.log("\n最终回答:");
-        console.log(`  ${finalResponse.content}`);
-      }
-    } else {
+      const answer = response.messages[response.messages.length - 1].content;
       console.log("最终回答:");
-      console.log(`  ${response.content}`);
+      console.log(`  ${answer}`);
+      console.log(`消息流转数量: ${response.messages.length}`);
+    } catch (error) {
+      console.log("错误:", error instanceof Error ? error.message : String(error));
     }
 
     console.log("=".repeat(50));

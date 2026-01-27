@@ -28,6 +28,7 @@ const model = createModelClient();
 //    * 事件抽取
 //    * 产品信息结构化
 //    * 批量处理与错误处理
+//    * 传统方法对比
 
 
 // 示例 1: 基础信息提取
@@ -292,6 +293,72 @@ async function example5BatchExtraction() {
 }
 
 
+async function example6Comparison() {
+  console.log("\n" + "=".repeat(60));
+  console.log("示例 6: 结构化输出 vs 传统方法");
+  console.log("=".repeat(60));
+
+  const ContactInfoSchema = z.object({
+    name: z.string().describe("姓名"),
+    phone: z.string().describe("电话"),
+    email: z.string().describe("邮箱"),
+  });
+
+  type ContactInfo = z.infer<typeof ContactInfoSchema>;
+
+  const testText = `
+    联系人：张伟
+    电话：138-1234-5678
+    邮箱：zhangwei@example.com
+  `;
+
+  console.log("\n方法 1: 传统正则表达式");
+  try {
+    const nameMatch = testText.match(/联系人[：:]\s*(\S+)/);
+    const phoneMatch = testText.match(/电话[：:]\s*(\S+)/);
+    const emailMatch = testText.match(/邮箱[：:]\s*(\S+)/);
+
+    const regexResult = {
+      name: nameMatch ? nameMatch[1] : null,
+      phone: phoneMatch ? phoneMatch[1] : null,
+      email: emailMatch ? emailMatch[1] : null
+    };
+    console.log(`✓ 正则结果: ${JSON.stringify(regexResult)}`);
+  } catch (e) {
+    console.log(`✗ 正则失败: ${e}`);
+  }
+
+  console.log("\n方法 2: 结构化输出");
+  try {
+    const parser = StructuredOutputParser.fromZodSchema(ContactInfoSchema);
+
+    const prompt = ChatPromptTemplate.fromMessages([
+      ["system", "你是一个信息提取专家。"],
+      [
+        "user",
+        `提取联系信息：
+{text}
+
+{format_instructions}`,
+      ],
+    ]);
+
+    const chain = prompt.pipe(model).pipe(parser);
+    const structuredResult = await chain.invoke({
+      text: testText,
+      format_instructions: parser.getFormatInstructions(),
+    }) as ContactInfo;
+    console.log(`✓ 结构化结果: ${JSON.stringify(structuredResult)}`);
+  } catch (e) {
+    console.log(`✗ 结构化失败: ${e}`);
+  }
+
+  console.log("\n对比:");
+  console.log("- 正则表达式：快速但需要精确模式，灵活性低");
+  console.log("- 结构化输出：理解语义，灵活但需要 LLM 调用");
+}
+
+
 
 async function main() {
   console.log("08 - 结构化输出");
@@ -303,6 +370,7 @@ async function main() {
     await example3EventExtraction();
     await example4ProductExtraction();
     await example5BatchExtraction();
+    await example6Comparison();
 
     console.log("\n" + "=".repeat(60));
     console.log("结构化输出示例运行完成！");
@@ -313,6 +381,7 @@ async function main() {
     console.log("3. 添加字段描述和验证规则");
     console.log("4. 处理嵌套模型和复杂类型");
     console.log("5. 批量处理和错误处理");
+    console.log("6. 对比传统方法与结构化输出的差异");
   } catch (e) {
     console.log(`运行错误：${e}`);
     process.exit(1);

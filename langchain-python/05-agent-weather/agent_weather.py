@@ -1,214 +1,134 @@
 #!/usr/bin/env python3
 """
 05 - Agent Weather
-学习如何创建智能体（Agent），让 AI 能够使用工具获取实时天气信息
+使用 create_agent API 创建智能体，让 AI 能够使用工具获取实时天气信息
 """
 
 import os
-import json
-import requests
-from datetime import datetime, timedelta
+import sys
+import httpx
 from dotenv import load_dotenv
-from pydantic import SecretStr
 
-# 加载环境变量
 load_dotenv(override=True)
 
 
 def main():
     print("🦜🔗 05 - Agent Weather")
-    print("=" * 40)
+    print("=" * 50)
 
-    # 检查 API 密钥
     if not os.getenv("OPENAI_API_KEY"):
         print("❌ 请设置 OPENAI_API_KEY 环境变量")
         return 1
 
+    if not os.getenv("OPENWEATHER_API_KEY"):
+        print("❌ 请设置 OPENWEATHER_API_KEY 环境变量")
+        return 1
+
     try:
-        # 导入 LangChain 组件
-        from langchain_openai import ChatOpenAI
-        from langchain_core.tools import tool
-        from langchain.agents import AgentExecutor, create_tool_calling_agent
-        from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+        from langchain.agents import create_agent
+        from langchain.tools import tool
+
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from clients import create_model_client
 
         print("✓ LangChain 组件导入完成")
 
-        # 1. 创建天气获取工具
+        llm = create_model_client(temperature=0)
+
         print("\n=== 1. 创建天气获取工具 ===")
-
-        def get_weather_data(location: str, days: int = 1) -> dict:
-            """获取天气数据（模拟）"""
-            weather_database = {
-                "北京": {
-                    "temp_range": (15, 25),
-                    "conditions": ["晴", "多云", "小雨"],
-                    "humidity_range": (40, 70),
-                    "wind_range": (5, 15),
-                },
-                "上海": {
-                    "temp_range": (18, 28),
-                    "conditions": ["多云", "阴", "小雨"],
-                    "humidity_range": (60, 80),
-                    "wind_range": (10, 20),
-                },
-                "广州": {
-                    "temp_range": (22, 32),
-                    "conditions": ["晴", "多云", "雷阵雨"],
-                    "humidity_range": (70, 90),
-                    "wind_range": (5, 12),
-                },
-            }
-
-            city_data = weather_database.get(
-                location,
-                {
-                    "temp_range": (10, 20),
-                    "conditions": ["晴", "多云", "阴"],
-                    "humidity_range": (50, 70),
-                    "wind_range": (5, 15),
-                },
-            )
-
-            weather_data = []
-            base_date = datetime.now()
-
-            for i in range(days):
-                date = base_date + timedelta(days=i)
-                temp_min, temp_max = city_data["temp_range"]
-                humidity_min, humidity_max = city_data["humidity_range"]
-                wind_min, wind_max = city_data["wind_range"]
-
-                import random
-
-                random.seed(hash(location + str(i)))
-
-                day_data = {
-                    "date": date.strftime("%Y-%m-%d"),
-                    "location": location,
-                    "temperature": {
-                        "min": round(temp_min + random.uniform(-2, 2), 1),
-                        "max": round(temp_max + random.uniform(-2, 2), 1),
-                        "avg": round(
-                            (temp_min + temp_max) / 2 + random.uniform(-1, 1), 1
-                        ),
-                    },
-                    "condition": random.choice(city_data["conditions"]),
-                    "humidity": round(random.uniform(humidity_min, humidity_max), 1),
-                    "wind_speed": round(random.uniform(wind_min, wind_max), 1),
-                    "rain": random.choice([True, False])
-                    if "雨" in random.choice(city_data["conditions"])
-                    else False,
-                }
-                weather_data.append(day_data)
-
-            return {"location": location, "days": days, "data": weather_data}
 
         @tool
         def get_weather(location: str, days: int = 1) -> str:
-            """获取指定地点未来几天的天气信息。
+            """获取指定城市的天气预报，包括温度、天气状况和降雨概率。
 
             Args:
-                location (str): 城市名称，如"北京"、"上海"
-                days (int): 查询天数，默认1天，最多7天
+                location (str): 城市英文名称，例如 Beijing, Shanghai
+                days (int): 预报天数，默认为1天
 
             Returns:
-                str: 天气信息的JSON格式字符串
+                str: 天气预报信息
             """
-            days = min(max(days, 1), 7)
-
             try:
-                weather_data = get_weather_data(location, days)
-                return json.dumps(weather_data, ensure_ascii=False, indent=2)
+                api_key = os.getenv("OPENWEATHER_API_KEY")
+                if not api_key:
+                    return "OPENWEATHER_API_KEY 环境变量未设置"
+
+                url = f"https://api.openweathermap.org/data/2.5/forecast"
+                params = {
+                    "q": location,
+                    "appid": api_key,
+                    "units": "metric",
+                    "cnt": days * 8,
+                }
+
+                response = httpx.get(url, params=params, timeout=10.0)
+                response.raise_for_status()
+                data = response.json()
+
+                forecasts = data["list"][: days * 8]
+                result = f"{location} 天气预报：\n"
+
+                for item in forecasts:
+                    from datetime import datetime
+                    date = datetime.fromtimestamp(item["dt"]).strftime("%Y-%m-%d")
+                    condition = item["weather"][0]["description"]
+                    temp = item["main"]["temp"]
+                    result += f"{date} {condition}, 温度: {temp}°C\n"
+
+                return result
             except Exception as e:
-                return json.dumps(
-                    {"error": f"获取天气数据失败：{str(e)}"}, ensure_ascii=False
-                )
+                return f"获取天气失败: {str(e)}"
 
         print("✓ 天气获取工具创建完成")
 
-        # 2. 创建智能体
-        print("\n=== 2. 创建智能体 ===")
+        print("\n=== 2. 使用 create_agent 创建智能体 ===")
 
-        # 从环境变量读取配置
-        api_key = os.getenv("OPENAI_API_KEY", "")
-        base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-        model_name = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
+        agent = create_agent(
+            model=llm,
+            tools=[get_weather],
+            system_prompt="""你是一个专业的天气助手智能体。你能够：
 
-        llm = ChatOpenAI(
-            model=model_name,
-            temperature=0,
-            api_key=SecretStr(api_key),
-            base_url=base_url,
-        )
+1. 获取指定城市的天气信息
+2. 分析天气数据并提供建议
+3. 根据天气情况给出穿衣、出行建议
 
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    """
-            你是一个专业的天气助手智能体。你能够：
+可用工具：
+- get_weather: 获取天气数据
 
-            1. 获取指定城市的天气信息
-            2. 分析天气数据并提供建议
-            3. 根据天气情况给出穿衣、出行建议
+工作流程：
+1. 理解用户需求
+2. 获取相关天气数据
+3. 分析数据并提供建议
 
-            可用工具：
-            - get_weather: 获取天气数据
-
-            工作流程：
-            1. 理解用户需求
-            2. 获取相关天气数据
-            3. 分析数据并提供建议
-
-            请用中文回答，保持友好和专业的语调。
-            """,
-                ),
-                ("user", "{input}"),
-                MessagesPlaceholder(variable_name="agent_scratchpad"),
-            ]
-        )
-
-        tools = [get_weather]
-
-        agent = create_tool_calling_agent(llm=llm, tools=tools, prompt=prompt)
-
-        agent_executor = AgentExecutor(
-            agent=agent, tools=tools, verbose=False, max_iterations=5
+请用中文回答，保持友好和专业的语调。""",
         )
 
         print("✓ 天气智能体创建完成")
 
-        # 3. 测试智能体
         print("\n=== 3. 测试智能体 ===")
 
-        test_questions = [
-            "查询北京明天的天气情况",
-            "上海未来3天天气怎么样？",
-            "明天我需要带伞吗？我在广州",
+        questions = [
+            "北京明天的天气怎么样？",
+            "上海需要带伞吗？",
         ]
 
-        for question in test_questions:
-            print(f"\n问题：{question}")
+        for question in questions:
+            print(f"\n用户问题: {question}")
+            print("-" * 50)
+
             try:
-                response = agent_executor.invoke({"input": question})
-                print(f"回答：{response['output']}")
+                result = agent.invoke(
+                    {"messages": [{"role": "user", "content": question}]}
+                )
+
+                answer = result["messages"][-1].content
+                print("最终回答:")
+                print(f"  {answer}")
+                print(f"消息流转数量: {len(result['messages'])}")
             except Exception as e:
                 print(f"错误：{e}")
 
-        # 4. 演示数据处理
-        print("\n=== 4. 天气数据分析演示 ===")
-
-        # 获取北京未来3天天气
-        weather_data = get_weather_data("北京", 3)
-        print(f"\\n{weather_data['location']} 未来 {weather_data['days']} 天天气：")
-
-        for day in weather_data["data"]:
-            print(f"\\n日期：{day['date']}")
-            print(f"温度：{day['temperature']['min']}-{day['temperature']['max']}°C")
-            print(f"天气：{day['condition']}")
-            print(f"湿度：{day['humidity']}%")
-            print(f"风速：{day['wind_speed']} km/h")
-            print(f"降雨：{'是' if day['rain'] else '否'}")
+            print("=" * 50)
 
         print("\n🎉 Agent Weather 示例运行成功！")
 
@@ -217,6 +137,8 @@ def main():
         return 1
     except Exception as e:
         print(f"❌ 运行错误：{e}")
+        import traceback
+        traceback.print_exc()
         return 1
 
     return 0

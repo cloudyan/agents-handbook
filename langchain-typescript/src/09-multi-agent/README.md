@@ -41,6 +41,8 @@ pnpm 09-multi-agent:dev
 pnpm 09-multi-agent
 ```
 
+**注意**：TypeScript 和 Python 版本现在都支持 LangGraph CLI，功能完全对齐。两种版本都提供 CLI 和 Web UI 两种运行方式。
+
 ## 项目结构
 
 ```
