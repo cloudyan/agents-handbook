@@ -3,7 +3,7 @@
 This file provides guidance to neovate when working with code in this repository.
 
 ## WHY: Purpose and Goals
-多框架 AI Agent 开发实战手册，涵盖 LangChain Python & TypeScript，通过 11 个渐进式示例帮助开发者掌握大模型应用开发，从基础链到生产级智能体。
+多框架 AI Agent 开发实战手册，涵盖 LangChain Python & TypeScript，通过 13 个渐进式示例帮助开发者掌握大模型应用开发，从基础链到生产级智能体，支持 LangChain 1.0 新 API 和 LangGraph 多智能体系统。
 
 ## WHAT: Technical Stack
 - **Python**: uv (包管理), Jupyter Lab (交互开发), LangChain (框架), FastAPI (部署)
