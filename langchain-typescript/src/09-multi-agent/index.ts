@@ -1,9 +1,9 @@
 import { createModelClient } from "../clients/model";
 import { createSearchTool } from "../clients/tavily";
-import { SupervisorAgent } from "./supervisor-agent";
-import { ResearcherAgent } from "./researcher-agent";
-import { CoderAgent } from "./coder-agent";
-import { ReviewerAgent } from "./reviewer-agent";
+import { SupervisorAgent } from "./agents/supervisor-agent";
+import { ResearcherAgent } from "./agents/researcher-agent";
+import { CoderAgent } from "./agents/coder-agent";
+import { ReviewerAgent } from "./agents/reviewer-agent";
 
 async function main() {
   console.log("09 - 多智能体协作系统");

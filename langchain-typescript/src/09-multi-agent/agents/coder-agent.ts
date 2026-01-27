@@ -1,6 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { BaseAgent } from "./base-agent";
-import { AgentMessage } from "./types";
+import { AgentMessage } from "../types";
 
 export class CoderAgent extends BaseAgent {
   constructor(model: ChatOpenAI) {

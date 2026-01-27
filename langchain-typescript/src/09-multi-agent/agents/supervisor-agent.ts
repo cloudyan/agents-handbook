@@ -31,7 +31,7 @@ export class SupervisorAgent {
     }
   }
 
-  private analyzeTaskType(task: string): string {
+  analyzeTaskType(task: string): string {
     const codeKeywords = ["实现", "编写", "代码", "函数", "算法", "程序"];
     const researchKeywords = ["研究", "分析", "比较", "调研", "技术"];
 

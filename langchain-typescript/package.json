@@ -19,6 +19,7 @@
     "07-advanced-agents": "tsx src/07-advanced-agents.ts",
     "08-structured-output": "tsx src/08-structured-output.ts",
     "09-multi-agent": "tsx src/09-multi-agent/index.ts",
+    "09-multi-agent:dev": "npx @langchain/langgraph-cli dev --config src/09-multi-agent/langgraph.json",
     "10-streaming-chat": "tsx src/10-streaming-chat/index.ts",
     "11-production-tracing": "tsx src/11-production-tracing.ts",
     "12-complete-chat-service": "tsx src/12-complete-chat-service/index.ts"
@@ -34,6 +35,8 @@
   "dependencies": {
     "@langchain/community": "^1.1.7",
     "@langchain/core": "^1.1.17",
+    "@langchain/langgraph": "^1.1.2",
+    "@langchain/langgraph-cli": "^1.1.11",
     "@langchain/ollama": "^1.2.1",
     "@langchain/openai": "^1.2.3",
     "@langchain/redis": "^1.0.1",

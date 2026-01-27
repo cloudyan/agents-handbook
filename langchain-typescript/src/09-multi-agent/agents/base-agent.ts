@@ -1,6 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { Tool } from "@langchain/core/tools";
-import { AgentMessage } from "./types";
+import { AgentMessage } from "../types";
 
 export class BaseAgent {
   name: string;

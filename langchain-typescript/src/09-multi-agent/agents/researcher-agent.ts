@@ -1,7 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { Tool } from "@langchain/core/tools";
 import { BaseAgent } from "./base-agent";
-import { AgentMessage } from "./types";
+import { AgentMessage } from "../types";
 
 export class ResearcherAgent extends BaseAgent {
   constructor(llm: ChatOpenAI, searchTool: Tool) {
