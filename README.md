@@ -175,6 +175,9 @@ pnpm 05-agent-weather
 
 # 5. 运行 API 服务
 pnpm 06-api-deployment
+
+# 6. 运行完整聊天服务（示例 12）
+pnpm 12-complete-chat-service
 ```
 
 ---
@@ -205,13 +208,14 @@ pnpm 06-api-deployment
 | 08 | 结构化输出 | Pydantic / Zod | ⭐⭐⭐ | ✅ | ✅ | 强类型数据提取与验证 |
 | 09 | 多智能体协作 | Supervisor + Sub-agents | ⭐⭐⭐⭐⭐ | ✅ | ✅ | 任务分解与协作 |
 | 10 | 流式输出 + ChatUI | Streaming + WebSocket | ⭐⭐⭐⭐ | ✅ | ⏳ | 实时响应前端交互 |
-| 11 | 生产级追踪 | LangSmith + 日志 | ⭐⭐⭐⭐⭐ | ✅ | ⏳ | 监控、调试、优化 |
+| 11 | 生产级追踪 | LangSmith + 日志 | ⭐⭐⭐⭐⭐ | ✅ | ✅ | 监控、调试、优化 |
+| 12 | 完整聊天服务 | Agent + SSE + Session | ⭐⭐⭐⭐⭐ | ✅ | ✅ | 生产级聊天服务，支持会话管理和数据分析 |
 
 ### 学习路径
 
 - **初学者**：01 → 02 → 03 → 04
 - **进阶开发者**：05 → 06 → 07 → 08
-- **高级工程师**：09 → 10 → 11
+- **高级工程师**：09 → 10 → 11 → 12
 
 ---
 
@@ -258,6 +262,7 @@ Final Answer: 明天北京有小雨，建议带伞☔，气温约 18℃。
 - [x] 09 多智能体协作（Supervisor 模式）
 - [x] 10 流式输出 + 前端 ChatUI
 - [x] 11 生产级日志、追踪（LangSmith）
+- [x] 12 完整聊天服务（Agent + SSE + Session + Analytics）
 
 ---
 

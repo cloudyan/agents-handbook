@@ -18,9 +18,10 @@
     "06-api-deployment": "tsx src/06-api-deployment.ts",
     "07-advanced-agents": "tsx src/07-advanced-agents.ts",
     "08-structured-output": "tsx src/08-structured-output.ts",
-    "09-multi-agent": "tsx src/09-multi-agent.ts",
-    "10-streaming-chat": "tsx src/10-streaming-chat.ts",
-    "11-production-tracing": "tsx src/11-production-tracing.ts"
+    "09-multi-agent": "tsx src/09-multi-agent/index.ts",
+    "10-streaming-chat": "tsx src/10-streaming-chat/index.ts",
+    "11-production-tracing": "tsx src/11-production-tracing.ts",
+    "12-complete-chat-service": "tsx src/12-complete-chat-service/index.ts"
   },
   "keywords": [
     "langchain",
@@ -64,5 +65,5 @@
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
   },
-  "packageManager": "pnpm@10.28.1"
+  "packageManager": "pnpm@10.28.2"
 }

@@ -91,11 +91,27 @@ langchain-typescript/
 │   ├── 02-prompt-template.ts   # 提示词模板 (LCEL)
 │   ├── 03-memory-chat.ts       # 带记忆的对话 (LCEL)
 │   ├── 04-rag-qa.ts            # 检索增强问答 (LCEL)
-│   ├── 05-agent-weather.ts     # 天气智能体 (旧版)
-│   ├── 05-agent-weather-v2.ts  # 天气智能体 (简化版)
+│   ├── 05-agent-weather.ts     # 天气智能体
 │   ├── 06-api-deployment.ts    # API 部署
-│   ├── 07-advanced-agents.ts   # 高级智能体 (旧版)
-│   ├── 07-advanced-agents-v2.ts # 高级智能体 (简化版)
+│   ├── 07-advanced-agents.ts   # 高级智能体
+│   ├── 08-structured-output.ts # 结构化输出
+│   ├── 09-multi-agent/         # 多智能体协作系统
+│   │   ├── index.ts            # 主入口
+│   │   ├── types.ts            # 类型定义
+│   │   ├── base-agent.ts       # 基础 Agent 类
+│   │   ├── researcher-agent.ts # 研究员 Agent
+│   │   ├── coder-agent.ts      # 编码 Agent
+│   │   ├── reviewer-agent.ts   # 审查 Agent
+│   │   └── supervisor-agent.ts # 监督 Agent
+│   ├── 10-streaming-chat/      # 流式聊天应用
+│   ├── 11-production-tracing.ts # 生产环境追踪
+│   ├── 12-complete-chat-service/ # 完整聊天服务
+│   ├── clients/                # 客户端工具
+│   │   ├── model.ts
+│   │   ├── embedding.ts
+│   │   ├── agent.ts
+│   │   ├── tavily.ts
+│   │   └── rag-text.ts
 │   └── check-env.ts            # 环境验证
 ├── package.json                # 项目配置
 ├── tsconfig.json               # TypeScript 配置

@@ -1,25 +1,14 @@
-import dotenv from "dotenv";
+
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { StrOutputParser } from "@langchain/core/output_parsers";
-import { Tool } from "@langchain/core/tools";
+import { StringOutputParser } from "@langchain/core/output_parsers";
+import { tool } from "langchain";
 import { z } from "zod";
-import { AgentExecutor, createToolCallingAgent } from "langchain/agents";
-import { MessagesPlaceholder } from "@langchain/core/messages";
-import { FakeEmbeddings } from "@langchain/community/embeddings/fake";
-import { Chroma } from "@langchain/community/vectorstores/chroma";
+import { createAgent } from "langchain";
+import { HumanMessage } from "@langchain/core/messages";
+import { createModelClient } from "./clients/model";
 
-dotenv.config({ override: true });
-
-const apiKey = process.env.OPENAI_API_KEY;
-const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
 const modelName = process.env.MODEL_NAME || "gpt-3.5-turbo";
-const langchainApiKey = process.env.LANGCHAIN_API_KEY;
-
-if (!apiKey) {
-  console.error("请设置 OPENAI_API_KEY 环境变量");
-  process.exit(1);
-}
 
 interface PerformanceMetrics {
   chainName: string;
@@ -142,16 +131,13 @@ async function example1SimpleChainWithTracing(
   console.log("=".repeat(60));
 
   try {
-    const llm = new ChatOpenAI({
-      modelName,
-      openAIApiKey: apiKey,
-      configuration: { baseURL },
+    const llm = createModelClient({
       temperature: 0,
     });
 
     const prompt = ChatPromptTemplate.fromTemplate("回答：{question}");
 
-    const chain = prompt.pipe(llm).pipe(new StrOutputParser());
+    const chain = prompt.pipe(llm).pipe(new StringOutputParser());
 
     monitor.startTracking();
 
@@ -163,11 +149,10 @@ async function example1SimpleChainWithTracing(
       }
     );
 
-    const metrics = monitor.endTracking("simple_chain", true);
+    monitor.endTracking("simple_chain", true);
     console.log(`响应: ${response}`);
-    console.log(`执行时间: ${metrics.executionTime.toFixed(2)}秒`);
   } catch (e) {
-    const metrics = monitor.endTracking("simple_chain", false, e instanceof Error ? e.message : String(e));
+    monitor.endTracking("simple_chain", false, e instanceof Error ? e.message : String(e));
     console.log(`错误: ${e}`);
     logger.log("ERROR", `简单 Chain 错误: ${e}`);
   }
@@ -182,20 +167,12 @@ async function example2AgentWithTracing(
   console.log("=".repeat(60));
 
   try {
-    const llm = new ChatOpenAI({
-      modelName,
-      openAIApiKey: apiKey,
-      configuration: { baseURL },
+    const llm = createModelClient({
       temperature: 0,
     });
 
-    const calculator = new Tool({
-      name: "calculator",
-      description: "计算数学表达式",
-      schema: z.object({
-        expression: z.string().describe("数学表达式，如 25 * 4"),
-      }),
-      func: async (input: { expression: string }) => {
+    const calculator = tool(
+      async (input: { expression: string }) => {
         try {
           const result = eval(input.expression);
           return `计算结果: ${result}`;
@@ -203,39 +180,38 @@ async function example2AgentWithTracing(
           return "计算错误";
         }
       },
-    });
+      {
+        name: "calculator",
+        description: "计算数学表达式",
+        schema: z.object({
+          expression: z.string().describe("数学表达式，如 25 * 4"),
+        }),
+      }
+    );
 
     const tools = [calculator];
 
-    const prompt = ChatPromptTemplate.fromMessages([
-      ["system", "你是一个智能助手，可以使用计算器工具。"],
-      ["user", "{input}"],
-      new MessagesPlaceholder("agent_scratchpad"),
-    ]);
-
-    const agent = await createToolCallingAgent({ llm, tools, prompt });
-    const agentExecutor = new AgentExecutor({
-      agent,
+    const agent = createAgent({
+      model: llm,
       tools,
-      verbose: true,
-      maxIterations: 3,
+      systemPrompt: "你是一个智能助手，可以使用计算器工具。",
     });
 
     monitor.startTracking();
 
-    const response = await agentExecutor.invoke(
-      { input: "计算 25 * 4 + 18 等于多少？" },
+    const response = await agent.invoke(
+      { messages: [new HumanMessage("计算 25 * 4 + 18 等于多少？")] },
       {
         tags: ["production", "agent"],
         metadata: { version: "1.0", agent_type: "calculator" },
       }
     );
 
-    const metrics = monitor.endTracking("agent_chain", true);
-    console.log(`响应: ${response.output}`);
-    console.log(`执行时间: ${metrics.executionTime.toFixed(2)}秒`);
+    monitor.endTracking("agent_chain", true);
+    const content = response.messages[response.messages.length - 1].content as string;
+    console.log(`响应: ${content}`);
   } catch (e) {
-    const metrics = monitor.endTracking("agent_chain", false, e instanceof Error ? e.message : String(e));
+    monitor.endTracking("agent_chain", false, e instanceof Error ? e.message : String(e));
     console.log(`错误: ${e}`);
     logger.log("ERROR", `Agent 错误: ${e}`);
   }
@@ -250,10 +226,7 @@ async function example3RAGWithTracing(
   console.log("=".repeat(60));
 
   try {
-    const llm = new ChatOpenAI({
-      modelName,
-      openAIApiKey: apiKey,
-      configuration: { baseURL },
+    const llm = createModelClient({
       temperature: 0,
     });
 
@@ -262,10 +235,6 @@ async function example3RAGWithTracing(
       "LangChain 提供了链式调用、提示词管理等功能。",
       "LangChain 支持多种 LLM 提供商和工具。",
     ];
-
-    const embeddings = new FakeEmbeddings({ size: 1536 });
-    const vectorstore = await Chroma.fromTexts(documents, [], embeddings);
-    const retriever = vectorstore.asRetriever();
 
     const prompt = ChatPromptTemplate.fromTemplate(`
 基于以下上下文回答问题：
@@ -277,31 +246,23 @@ async function example3RAGWithTracing(
 回答：
 `);
 
-    const chain = (
-      {
-        context: retriever,
-        question: (x: { question: string }) => x.question,
-      } as any
-    )
-      .pipe(prompt)
-      .pipe(llm)
-      .pipe(new StrOutputParser());
+    const chain = prompt.pipe(llm).pipe(new StringOutputParser());
 
     monitor.startTracking();
 
+    const context = documents.join("\n");
     const response = await chain.invoke(
-      { question: "LangChain 有什么功能？" },
+      { context, question: "LangChain 有什么功能？" },
       {
         tags: ["production", "rag"],
-        metadata: { version: "1.0", retriever_type: "chroma" },
+        metadata: { version: "1.0", retriever_type: "simple" },
       }
     );
 
-    const metrics = monitor.endTracking("rag_chain", true);
+    monitor.endTracking("rag_chain", true);
     console.log(`响应: ${response}`);
-    console.log(`执行时间: ${metrics.executionTime.toFixed(2)}秒`);
   } catch (e) {
-    const metrics = monitor.endTracking("rag_chain", false, e instanceof Error ? e.message : String(e));
+    monitor.endTracking("rag_chain", false, e instanceof Error ? e.message : String(e));
     console.log(`错误: ${e}`);
     logger.log("ERROR", `RAG 错误: ${e}`);
   }
@@ -318,12 +279,7 @@ async function example4PerformanceComparison(
   try {
     const testQuestion = "什么是人工智能？";
 
-    console.log(`\n测试模型: ${modelName}`);
-
-    const llm = new ChatOpenAI({
-      modelName,
-      openAIApiKey: apiKey,
-      configuration: { baseURL },
+    const llm = createModelClient({
       temperature: 0,
     });
 
@@ -331,11 +287,10 @@ async function example4PerformanceComparison(
 
     const response = await llm.invoke(testQuestion);
 
-    const metrics = monitor.endTracking(`model_${modelName}`, true);
+    monitor.endTracking(`model_${modelName}`, true);
     console.log(`响应长度: ${response.content.toString().length} 字符`);
-    console.log(`执行时间: ${metrics.executionTime.toFixed(2)}秒`);
   } catch (e) {
-    const metrics = monitor.endTracking(
+    monitor.endTracking(
       `model_${modelName}`,
       false,
       e instanceof Error ? e.message : String(e)
