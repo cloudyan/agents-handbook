@@ -176,8 +176,11 @@ pnpm 05-agent-weather
 # 5. 运行 API 服务
 pnpm 06-api-deployment
 
-# 6. 运行完整聊天服务（示例 12）
-pnpm 12-complete-chat-service
+# 6. 运行 Agent Chat 服务（示例 12）
+pnpm 12-agent-chat
+
+# 7. 运行完整版 Agent Chat 服务（示例 13）
+pnpm 13-agent-complete
 ```
 
 ---
@@ -209,7 +212,8 @@ pnpm 12-complete-chat-service
 | 09 | 多智能体协作 | Supervisor + Sub-agents | ⭐⭐⭐⭐⭐ | ✅ | ✅ | 任务分解与协作 |
 | 10 | 流式输出 + ChatUI | Streaming + WebSocket | ⭐⭐⭐⭐ | ✅ | ⏳ | 实时响应前端交互 |
 | 11 | 生产级追踪 | LangSmith + 日志 | ⭐⭐⭐⭐⭐ | ✅ | ✅ | 监控、调试、优化 |
-| 12 | 完整聊天服务 | Agent + SSE + Session | ⭐⭐⭐⭐⭐ | ✅ | ✅ | 生产级聊天服务，支持会话管理和数据分析 |
+| 12 | Agent Chat 基础版 | LangGraph CLI + UI 对接 | ⭐⭐⭐ | ✅ | ✅ | 基础对话功能，LangGraph CLI 集成演示 |
+| 13 | Agent Chat 完整版 | ReAct + Tools + Streaming | ⭐⭐⭐⭐⭐ | ✅ | ✅ | 完整 Agent 能力，工具调用、多轮对话、复杂推理 |
 
 ### 学习路径
 

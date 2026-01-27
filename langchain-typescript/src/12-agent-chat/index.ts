@@ -3,10 +3,13 @@ import { createAgent, tool } from "langchain";
 import { HumanMessage, AIMessage } from "@langchain/core/messages";
 import { z } from "zod";
 import axios from "axios";
-import { createModelClient } from "../clients/model";
 import dotenv from "dotenv";
+import { createModelClient } from "../clients/model";
 
 dotenv.config({ override: true });
+
+// 展示如何不使用 LangGraph CLI 的方式
+// 仅供参考，不推荐使用
 
 const PORT = process.env.PORT || 2024;
 const app = express();
@@ -498,5 +501,6 @@ app.listen(PORT, () => {
   console.log('  -H "Content-Type: application/json" \\');
   console.log('  -H "Accept: text/event-stream" \\');
   console.log('  -d \'{"message": "北京明天的天气怎么样？"}\'');
+  console.log('打开浏览器访问：https://agentchat.vercel.app/?apiUrl=http://localhost:4001&assistantId=agent');
   console.log("=".repeat(60));
 });

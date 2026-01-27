@@ -50,6 +50,12 @@ pnpm 05-agent-weather
 
 # API 服务
 pnpm 06-api-deployment
+
+# Agent Chat 基础版
+pnpm 12-agent-chat
+
+# Agent Chat 完整版
+pnpm 13-agent-complete
 ```
 
 ### 语法
@@ -105,7 +111,8 @@ langchain-typescript/
 │   │   └── supervisor-agent.ts # 监督 Agent
 │   ├── 10-streaming-chat/      # 流式聊天应用
 │   ├── 11-production-tracing.ts # 生产环境追踪
-│   ├── 12-complete-chat-service/ # 完整聊天服务
+│   ├── 12-agent-chat/          # Agent Chat 基础版
+│   ├── 13-agent-complete/      # Agent Chat 完整版
 │   ├── clients/                # 客户端工具
 │   │   ├── model.ts
 │   │   ├── embedding.ts

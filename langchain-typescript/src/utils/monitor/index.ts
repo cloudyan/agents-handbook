@@ -89,7 +89,7 @@ export class ProductionMonitor {
   }
 
   async saveMetrics(filename?: string): Promise<void> {
-    const outputFile = filename || this.config.metricsFile;
+    const outputFile = filename || this.config.metricsFile || "metrics.json";
     const data = {
       timestamp: new Date().toISOString(),
       summary: this.getSummary(),
