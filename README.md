@@ -57,9 +57,8 @@ result = agent.invoke({"messages": [{"role": "user", "content": "查询北京天
 
 ### 使用建议
 
-- **学习 Agent 原理**：运行旧版示例 (`agent_weather.py`, `advanced_agents.py`)
-- **生产环境开发**：使用新版示例 (`agent_weather_v2.py`, `advanced_agents_v2.py`)
-- **多 Agent 系统**：新版基于 LangGraph，功能更强大 (`multi_agent_system_v2.py`)
+- **学习 Agent 原理**： (`agent_weather.py`, `advanced_agents.py`)
+- **多 Agent 系统**：基于 LangGraph，功能更强大 (`multi_agent_system.py`)
 
 ---
 
@@ -142,15 +141,9 @@ cp .env.example .env
 python 00-env/simple_check.py
 
 # 5. 运行示例
-# 旧版 API (学习原理)
 python 05-agent-weather/agent_weather.py
 python 07-advanced-agents/advanced_agents.py
 python 09-multi-agent/multi_agent_system.py
-
-# 新版 API (LangChain 1.0，推荐)
-python 05-agent-weather/agent_weather_v2.py
-python 07-advanced-agents/advanced_agents_v2.py
-python 09-multi-agent/multi_agent_system_v2.py
 
 # 或使用 Jupyter Lab
 jupyter lab 01-hello-chain/

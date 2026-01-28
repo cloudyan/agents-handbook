@@ -72,6 +72,7 @@ chroma/
 tmp/
 temp/
 *.tmp
+.neovate/
 
 .virtual_documents
 .ruff_cache
@@ -80,3 +81,6 @@ reports/*
 !reports/*.md
 chroma_db
 .langgraph_api
+reports
+temp_docs
+.mypy_cache

@@ -9,22 +9,21 @@ import sys
 import json
 from typing import Dict, Any
 from datetime import datetime
-from dataclasses import dataclass, asdict
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import PerformanceMonitor, CustomCallbackHandler, setup_langsmith
+from utils import PerformanceMonitor, CustomCallbackHandler, setup_langsmith, with_tracking
 
 
-def example_simple_chain_with_tracing(monitor, callback):
+def example_simple_chain_with_tracing(monitor, logger):
     """示例 1: 简单 Chain 追踪"""
     print("\n" + "="*60)
     print("示例 1: 简单 Chain 追踪")
     print("="*60)
 
-    try:
+    with with_tracking("simple_chain", monitor, logger):
         from langchain_core.prompts import ChatPromptTemplate
         from langchain_core.output_parsers import StrOutputParser
 
@@ -35,8 +34,6 @@ def example_simple_chain_with_tracing(monitor, callback):
 
         chain = prompt | llm | StrOutputParser()
 
-        monitor.start_tracking()
-
         response = chain.invoke(
             {"question": "什么是 LangChain？"},
             config={
@@ -45,27 +42,19 @@ def example_simple_chain_with_tracing(monitor, callback):
             }
         )
 
-        metrics = monitor.end_tracking("simple_chain", True)
         print(f"响应: {response}")
-        print(f"执行时间: {metrics.execution_time:.2f}秒")
-
-    except Exception as e:
-        metrics = monitor.end_tracking("simple_chain", False, str(e))
-        print(f"错误: {e}")
 
 
-def example_agent_with_tracing(monitor, callback):
+def example_agent_with_tracing(monitor, logger):
     """示例 2: Agent 追踪"""
     print("\n" + "="*60)
     print("示例 2: Agent 追踪")
     print("="*60)
 
-    monitor.start_tracking()
-
-    try:
+    with with_tracking("agent_chain", monitor, logger):
         from langchain.tools import tool
-        from langchain.agents import AgentExecutor, create_tool_calling_agent
-        from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+        from langchain.agents import create_agent
+        from langchain_core.messages import HumanMessage
 
         from clients import create_model_client
 
@@ -82,44 +71,31 @@ def example_agent_with_tracing(monitor, callback):
 
         tools = [calculator]
 
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", "你是一个智能助手，可以使用计算器工具。"),
-            ("user", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad"),
-        ])
-
-        agent = create_tool_calling_agent(llm, tools, prompt)
-        agent_executor = AgentExecutor(
-            agent=agent,
+        agent = create_agent(
+            model=llm,
             tools=tools,
-            verbose=False,
-            max_iterations=3
+            system_prompt="你是一个智能助手，可以使用计算器工具。"
         )
 
-        response = agent_executor.invoke(
-            {"input": "计算 25 * 4 + 18 等于多少？"},
+        response = agent.invoke(
+            {"messages": [HumanMessage(content="计算 25 * 4 + 18 等于多少？")]},
             config={
                 "tags": ["production", "agent"],
                 "metadata": {"version": "1.0", "agent_type": "calculator"}
             }
         )
 
-        metrics = monitor.end_tracking("agent_chain", True)
-        print(f"响应: {response['output']}")
-        print(f"执行时间: {metrics.execution_time:.2f}秒")
-
-    except Exception as e:
-        metrics = monitor.end_tracking("agent_chain", False, str(e))
-        print(f"错误: {e}")
+        content = response["messages"][-1].content
+        print(f"响应: {content}")
 
 
-def example_rag_with_tracing(monitor, callback):
+def example_rag_with_tracing(monitor, logger):
     """示例 3: RAG 追踪"""
     print("\n" + "="*60)
     print("示例 3: RAG 追踪")
     print("="*60)
 
-    try:
+    with with_tracking("rag_chain", monitor, logger):
         from langchain_core.prompts import ChatPromptTemplate
         from langchain_core.output_parsers import StrOutputParser
         from langchain_community.embeddings import FakeEmbeddings
@@ -142,11 +118,11 @@ def example_rag_with_tracing(monitor, callback):
 
         prompt = ChatPromptTemplate.from_template("""
         基于以下上下文回答问题：
-
+        
         上下文：{context}
-
+        
         问题：{question}
-
+        
         回答：
         """
         )
@@ -158,8 +134,6 @@ def example_rag_with_tracing(monitor, callback):
             | StrOutputParser()
         )
 
-        monitor.start_tracking()
-
         response = chain.invoke(
             {"question": "LangChain 有什么功能？"},
             config={
@@ -168,47 +142,28 @@ def example_rag_with_tracing(monitor, callback):
             }
         )
 
-        metrics = monitor.end_tracking("rag_chain", True)
         print(f"响应: {response}")
-        print(f"执行时间: {metrics.execution_time:.2f}秒")
-
-    except Exception as e:
-        metrics = monitor.end_tracking("rag_chain", False, str(e))
-        print(f"错误: {e}")
 
 
-def example_performance_comparison(monitor):
+def example_performance_comparison(monitor, logger):
     """示例 4: 性能对比"""
     print("\n" + "="*60)
     print("示例 4: 性能对比")
     print("="*60)
 
-    try:
+    test_question = "什么是人工智能？"
+    model_name = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
+
+    print(f"\n测试模型: {model_name}")
+
+    with with_tracking(f"model_{model_name}", monitor, logger):
         from clients import create_model_client
 
-        test_question = "什么是人工智能？"
+        llm = create_model_client(temperature=0)
 
-        model_name = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
+        response = llm.invoke(test_question)
 
-        print(f"\n测试模型: {model_name}")
-
-        try:
-            llm = create_model_client(temperature=0)
-
-            monitor.start_tracking()
-
-            response = llm.invoke(test_question)
-
-            metrics = monitor.end_tracking(f"model_{model_name}", True)
-            print(f"响应长度: {len(response.content)} 字符")
-            print(f"执行时间: {metrics.execution_time:.2f}秒")
-
-        except Exception as e:
-            metrics = monitor.end_tracking(f"model_{model_name}", False, str(e))
-            print(f"错误: {e}")
-
-    except Exception as e:
-        print(f"性能对比错误: {e}")
+        print(f"响应长度: {len(response.content)} 字符")
 
 
 def main():
@@ -223,13 +178,13 @@ def main():
     langsmith_enabled = setup_langsmith()
 
     monitor = PerformanceMonitor()
-    callback = CustomCallbackHandler()
+    logger = CustomCallbackHandler()
 
     try:
-        example_simple_chain_with_tracing(monitor, callback)
-        example_agent_with_tracing(monitor, callback)
-        example_rag_with_tracing(monitor, callback)
-        example_performance_comparison(monitor)
+        example_simple_chain_with_tracing(monitor, logger)
+        example_agent_with_tracing(monitor, logger)
+        example_rag_with_tracing(monitor, logger)
+        example_performance_comparison(monitor, logger)
 
         print("\n" + "="*60)
         print("性能摘要")
@@ -239,7 +194,7 @@ def main():
         print(json.dumps(summary, indent=2, ensure_ascii=False))
 
         monitor.save_metrics()
-        callback.save_logs()
+        logger.save_logs()
 
         if langsmith_enabled:
             print("\n✓ 访问 LangSmith 查看详细追踪:")

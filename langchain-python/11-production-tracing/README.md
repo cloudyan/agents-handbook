@@ -2,6 +2,66 @@
 
 展示如何使用 LangSmith 进行生产级追踪、日志记录和性能监控。
 
+## ✨ 现代化升级
+
+本示例已升级为使用 LangChain 1.0 最新 API：
+
+### 主要改进
+- ✅ 使用 `create_agent()` 替代旧的 `create_tool_calling_agent()`
+- ✅ 引入 `with_tracking()` 上下文管理器，自动处理追踪和错误
+- ✅ 统一使用 `{messages: [...]}` 消息格式
+- ✅ 代码量减少约 20%，更简洁易读
+
+### 代码对比
+
+**旧版 API（已废弃）**：
+```python
+from langchain.agents import create_tool_calling_agent, AgentExecutor
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "..."),
+    ("user", "{input}"),
+    MessagesPlaceholder(variable_name="agent_scratchpad"),
+])
+agent = create_tool_calling_agent(llm, tools, prompt)
+executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+response = executor.invoke({"input": "...", "agent_scratchpad": ...})
+```
+
+**新版 API（当前使用）**：
+```python
+from langchain.agents import create_agent
+from langchain_core.messages import HumanMessage
+
+agent = create_agent(
+    model=llm,
+    tools=tools,
+    system_prompt="..."
+)
+response = agent.invoke({
+    "messages": [HumanMessage(content="...")]
+})
+```
+
+**追踪方式对比**：
+
+**旧版（手动追踪）**：
+```python
+monitor.start_tracking()
+try:
+    response = chain.invoke(...)
+    metrics = monitor.end_tracking("chain_name", True)
+except Exception as e:
+    metrics = monitor.end_tracking("chain_name", False, str(e))
+    print(f"错误: {e}")
+```
+
+**新版（自动追踪）**：
+```python
+with with_tracking("chain_name", monitor, logger):
+    response = chain.invoke(...)
+```
+
 ## 核心功能
 
 ### 1. LangSmith 追踪
@@ -24,7 +84,7 @@
 
 ```bash
 # LangSmith 配置
-LANGCHAIN_TRACING_V2=true
+LANGSMITH_TRACING=true
 LANGSMITH_API_KEY=your_langsmith_api_key
 LANGSMITH_PROJECT=agents-handbook
 
@@ -48,8 +108,8 @@ OPENAI_API_KEY=your_openai_api_key
 ## 运行方法
 
 ```bash
-cd langchain-python/11-production-tracing
-python tracing_example.py
+cd langchain-python
+python 11-production-tracing/tracing_example.py
 ```
 
 ## 核心代码
@@ -57,29 +117,39 @@ python tracing_example.py
 ### 启用追踪
 ```python
 import os
-os.environ["LANGCHAIN_TRACING_V2"] = "true"
-os.environ["LANGSMITH_API_KEY"] = "your-key"
-os.environ["LANGSMITH_PROJECT"] = "my-project"
+os.environ[\"LANGSMITH_TRACING\"] = \"true\"
+os.environ[\"LANGSMITH_API_KEY\"] = \"your-key\"
+os.environ[\"LANGSMITH_PROJECT\"] = \"my-project\"
 ```
 
 ### 添加标签和元数据
 ```python
 chain.invoke(
-    {"input": "问题"},
+    {\"question\": \"问题\"},
     config={
-        "tags": ["production", "qa"],
-        "metadata": {"user_id": "123", "version": "1.0"}
+        \"tags\": [\"production\", \"qa\"],
+        \"metadata\": {\"user_id\": \"123\", \"version\": \"1.0\"}
     }
 )
 ```
 
+### 使用 with_tracking 自动追踪
+```python
+from utils import with_tracking, PerformanceMonitor, CustomCallbackHandler
+
+monitor = PerformanceMonitor()
+logger = CustomCallbackHandler()
+
+with with_tracking("chain_name", monitor, logger):
+    response = chain.invoke(...)
+```
+
 ### 自定义回调
 ```python
-from langchain.callbacks import BaseCallbackHandler
+from utils import CustomCallbackHandler
 
-class CustomHandler(BaseCallbackHandler):
-    def on_llm_start(self, serialized, prompts, **kwargs):
-        print(f"LLM 调用开始: {prompts}")
+logger = CustomCallbackHandler()
+logger.log("INFO", "自定义日志信息")
 ```
 
 ## 监控指标

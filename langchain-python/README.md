@@ -59,9 +59,6 @@ MODEL_NAME=deepseek-chat
 uv run python 04-rag-qa/rag_qa.py
 uv run python 05-agent-weather/agent_weather.py
 
-# LangChain 1.0 新版
-uv run python 05-agent-weather/agent_weather_v2.py
-
 # 启动服务
 uv run python 06-api-deployment/main.py
 uv run python 10-streaming-chat/chat_server.py

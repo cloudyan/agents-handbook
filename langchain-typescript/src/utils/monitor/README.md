@@ -151,7 +151,7 @@ LangSmith 是 LangChain 官方的追踪和调试平台，提供详细的执行�
 ```bash
 # LangSmith 追踪配置
 LANGSMITH_API_KEY=lsk_your_api_key_here
-LANGCHAIN_TRACING_V2=true
+LANGSMITH_TRACING=true
 LANGSMITH_PROJECT=your-project-name
 ```
 
@@ -189,7 +189,7 @@ LangSmith 提供免费额度，包括：
 ```bash
 # 不配置 LANGSMITH_API_KEY
 # LANGSMITH_API_KEY=
-# LANGCHAIN_TRACING_V2=false
+# LANGSMITH_TRACING=false
 ```
 
 运行时会看到：
