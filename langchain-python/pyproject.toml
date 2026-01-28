@@ -45,7 +45,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["00-env", "01-hello-chain", "02-prompt-template", "03-memory-chat", "04-rag-qa", "05-agent-weather", "06-api-deployment", "07-advanced-agents", "08-structured-output", "09-multi-agent", "10-streaming-chat", "11-production-tracing"]
+packages = ["00-env", "01-hello-chain", "02-prompt-template", "03-memory-chat", "04-rag-qa", "05-agent-weather", "06-api-deployment", "07-advanced-agents", "08-structured-output", "09-multi-agent", "10-streaming-chat", "11-production-tracing", "13-agent-complete"]
 
 [tool.ruff]
 line-length = 100
