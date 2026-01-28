@@ -1,29 +1,85 @@
-import os
+import json
 import sys
 from pathlib import Path
-from typing import Annotated, List, Any
+from typing import Annotated, List, Any, Dict
 from typing_extensions import TypedDict
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_openai import ChatOpenAI
+from langchain_core.messages import SystemMessage, convert_to_messages
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
-from langgraph.prebuilt import ToolNode
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from tools.index import tools
+from clients.model_client import create_model_client
 
-llm = ChatOpenAI(
-    model=os.getenv("MODEL_NAME", "gpt-3.5-turbo"),
-    temperature=0,
-)
+llm_stream = create_model_client(temperature=0, streaming=True)
+llm_fallback = create_model_client(temperature=0, streaming=False)
+_STREAMING_ERROR = "No generations found in stream."
 
 
 class AgentState(TypedDict):
     messages: Annotated[List[Any], add_messages]
-    tool_results: List[dict]
+    tool_results: List[Dict[str, str]]
     reasoning: str
+
+
+def _ensure_list(value: Any) -> List[Any]:
+    if not value:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def _extract_tool_calls(message: Any) -> List[Dict[str, Any]]:
+    if message is None:
+        return []
+    if isinstance(message, dict):
+        return _ensure_list(message.get("tool_calls"))
+
+    tool_calls = getattr(message, "tool_calls", None)
+    if tool_calls:
+        return _ensure_list(tool_calls)
+
+    additional_kwargs = getattr(message, "additional_kwargs", None)
+    if isinstance(additional_kwargs, dict):
+        return _ensure_list(additional_kwargs.get("tool_calls"))
+
+    return []
+
+
+def _tool_call_field(tool_call: Any, key: str) -> Any:
+    if isinstance(tool_call, dict):
+        return tool_call.get(key)
+    return getattr(tool_call, key, None)
+
+
+def _normalize_tool_args(raw_args: Any) -> Any:
+    if raw_args is None:
+        return {}
+    if isinstance(raw_args, dict):
+        return raw_args
+    if isinstance(raw_args, str):
+        try:
+            parsed = json.loads(raw_args)
+        except json.JSONDecodeError:
+            return raw_args
+        return parsed if isinstance(parsed, dict) else str(parsed)
+    return raw_args
+
+
+def _invoke_with_fallback(
+    primary_llm: Any,
+    messages: List[Any],
+    fallback_llm: Any | None = None,
+) -> Any:
+    try:
+        return primary_llm.invoke(messages)
+    except ValueError as exc:
+        if str(exc) == _STREAMING_ERROR:
+            target = fallback_llm or llm_fallback
+            return target.invoke(messages)
+        raise
 
 
 def analyze_node(state: AgentState) -> AgentState:
@@ -47,27 +103,39 @@ def analyze_node(state: AgentState) -> AgentState:
 请用中文回答，提供准确和有用的信息。"""
 
     try:
-        messages = [SystemMessage(content=system_prompt)]
-        messages.extend(state["messages"])
+        history_messages = convert_to_messages(state.get("messages", []))
+        messages = [SystemMessage(content=system_prompt), *history_messages]
 
-        bound_llm = llm.bind_tools(tools)
-        response = bound_llm.invoke(messages)
+        bound_llm = llm_stream.bind_tools(tools)
+        bound_fallback = llm_fallback.bind_tools(tools)
+        response = _invoke_with_fallback(bound_llm, messages, fallback_llm=bound_fallback)
 
         content = response.content or ""
-        tool_calls = response.tool_calls or []
+        tool_calls = _extract_tool_calls(response)
 
         if not content and not tool_calls:
             return {
                 **state,
-                "messages": [AIMessage(content="抱歉，我无法处理这个问题。请尝试重新表述。")],
+                "messages": [{"role": "assistant", "content": "抱歉，我无法处理这个问题。请尝试重新表述。"}],
                 "reasoning": "无法生成有效回复",
             }
 
-        reasoning_msg = f"决定调用工具: {', '.join([t['name'] for t in tool_calls])}" if tool_calls else "直接回答用户问题"
+        tool_names = [
+            str(name)
+            for name in (_tool_call_field(call, "name") for call in tool_calls)
+            if name
+        ]
+        reasoning_msg = (
+            f"决定调用工具: {', '.join(tool_names)}" if tool_names else "直接回答用户问题"
+        )
 
         return {
             **state,
-            "messages": [response],
+            "messages": [{
+                "role": "assistant",
+                "content": content,
+                "tool_calls": tool_calls
+            }],
             "reasoning": reasoning_msg,
         }
 
@@ -75,7 +143,7 @@ def analyze_node(state: AgentState) -> AgentState:
         print(f"Analyze node error: {e}")
         return {
             **state,
-            "messages": [AIMessage(content="处理您的请求时出现错误，请稍后重试。")],
+            "messages": [{"role": "assistant", "content": "处理您的请求时出现错误，请稍后重试。"}],
             "reasoning": "处理失败",
         }
 
@@ -84,26 +152,55 @@ def execute_tools_node(state: AgentState) -> AgentState:
     """
     工具执行节点 - 执行工具调用
     """
-    last_message = state["messages"][-1]
-    tool_calls = getattr(last_message, "tool_calls", [])
+    last_message = state.get("messages", [])[-1] if state.get("messages") else None
+    tool_calls = _extract_tool_calls(last_message)
 
     if not tool_calls:
         return {**state, "tool_results": []}
 
-    tool_node = ToolNode(tools)
-    result = tool_node.invoke({"messages": state["messages"]})
-
+    tool_map = {tool.name: tool for tool in tools}
     tool_results = []
-    for msg in result["messages"]:
-        if isinstance(msg, ToolMessage):
-            tool_results.append({
-                "tool": msg.name,
-                "result": msg.content,
-            })
+    tool_messages = []
+
+    for index, tool_call in enumerate(tool_calls):
+        tool_name = _tool_call_field(tool_call, "name")
+        if not tool_name:
+            continue
+        tool = tool_map.get(tool_name)
+        if tool:
+            try:
+                raw_args = _tool_call_field(tool_call, "args")
+                args = _normalize_tool_args(raw_args)
+                tool_call_id = (
+                    _tool_call_field(tool_call, "id")
+                    or _tool_call_field(tool_call, "tool_call_id")
+                    or f"call_{index}"
+                )
+                result = tool.invoke(args)
+                tool_results.append({
+                    "tool": tool_name,
+                    "result": str(result),
+                })
+                tool_messages.append({
+                    "role": "tool",
+                    "content": str(result),
+                    "tool_call_id": tool_call_id,
+                })
+            except Exception as e:
+                print(f"Tool {tool_name} error: {e}")
+                tool_results.append({
+                    "tool": tool_name,
+                    "result": f"工具执行失败: {str(e)}",
+                })
+                tool_messages.append({
+                    "role": "tool",
+                    "content": f"工具执行失败: {str(e)}",
+                    "tool_call_id": tool_call_id,
+                })
 
     return {
         **state,
-        "messages": result["messages"],
+        "messages": tool_messages,
         "tool_results": tool_results,
     }
 
@@ -123,28 +220,28 @@ def generate_answer_node(state: AgentState) -> AgentState:
 请用中文回答，保持友好和专业的语气。"""
 
     try:
-        messages = [SystemMessage(content=system_prompt)]
-        messages.extend(state["messages"])
+        history_messages = convert_to_messages(state.get("messages", []))
+        messages = [SystemMessage(content=system_prompt), *history_messages]
 
-        response = llm.invoke(messages)
+        response = _invoke_with_fallback(llm_stream, messages)
         content = response.content or ""
 
         if not content:
             return {
                 **state,
-                "messages": [AIMessage(content="抱歉，我无法生成有效的回答。请稍后重试。")],
+                "messages": [{"role": "assistant", "content": "抱歉，我无法生成有效的回答。请稍后重试。"}],
             }
 
         return {
             **state,
-            "messages": [response],
+            "messages": [{"role": "assistant", "content": content}],
         }
 
     except Exception as e:
         print(f"Generate answer node error: {e}")
         return {
             **state,
-            "messages": [AIMessage(content="生成回答时出现错误，请稍后重试。")],
+            "messages": [{"role": "assistant", "content": "生成回答时出现错误，请稍后重试。"}],
         }
 
 
@@ -152,8 +249,8 @@ def should_call_tools(state: AgentState) -> str:
     """
     条件边函数 - 决定下一步操作
     """
-    last_message = state["messages"][-1]
-    tool_calls = getattr(last_message, "tool_calls", [])
+    last_message = state.get("messages", [])[-1] if state.get("messages") else None
+    tool_calls = _extract_tool_calls(last_message)
 
     if tool_calls:
         return "execute_tools"

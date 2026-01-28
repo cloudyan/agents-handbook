@@ -4,7 +4,7 @@ from langchain_core.tools import tool
 
 
 @tool
-async def get_weather(location: str, days: int = 1) -> str:
+def get_weather(location: str, days: int = 1) -> str:
     """
     获取指定城市的天气预报，包括温度、天气状况和降雨概率。
     输入应该是城市的英文名称。
@@ -30,8 +30,8 @@ async def get_weather(location: str, days: int = 1) -> str:
             "cnt": days * 8,
         }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=params)
+        with httpx.Client() as client:
+            response = client.get(url, params=params)
             response.raise_for_status()
             data = response.json()
 
@@ -52,7 +52,7 @@ async def get_weather(location: str, days: int = 1) -> str:
 
 
 @tool
-async def search_web(query: str, max_results: int = 5) -> str:
+def search_web(query: str, max_results: int = 5) -> str:
     """
     搜索网络信息，获取最新的资讯和数据。适用于需要实时信息的问题。
 
@@ -77,8 +77,8 @@ async def search_web(query: str, max_results: int = 5) -> str:
             "search_depth": "basic",
         }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload)
+        with httpx.Client() as client:
+            response = client.post(url, json=payload)
             response.raise_for_status()
             data = response.json()
 
@@ -97,7 +97,7 @@ async def search_web(query: str, max_results: int = 5) -> str:
 
 
 @tool
-async def calculate(expression: str) -> str:
+def calculate(expression: str) -> str:
     """
     计算数学表达式，支持加减乘除和括号。
 
@@ -117,7 +117,7 @@ async def calculate(expression: str) -> str:
 
 
 @tool
-async def get_current_time() -> str:
+def get_current_time() -> str:
     """
     获取当前的日期和时间。
 
