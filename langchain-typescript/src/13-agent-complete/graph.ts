@@ -6,7 +6,7 @@ import { tools } from "./tools";
 const llm = createModelClient({ streaming: true });
 
 const StateAnnotation = Annotation.Root({
-  messages: Annotation<Array<{ role: string; content: string; tool_calls?: any[] }>>({
+  messages: Annotation<Array<{ role: string; content: string; tool_calls?: any[]; tool_call_id?: string }>>({
     reducer: (x, y) => x.concat(y),
     default: () => [],
   }),
@@ -117,9 +117,7 @@ async function executeToolsNode(state: typeof StateAnnotation.State) {
     const tool = toolMap.get(toolCall.name);
     if (tool) {
       try {
-        // 工具调用：使用 invoke 方法，添加类型断言
-        const toolFunc = tool as unknown as (input: unknown) => Promise<unknown>;
-        const result = await toolFunc(toolCall.args);
+        const result = await tool.invoke(toolCall.args);
         results.push({
           tool: toolCall.name,
           result: String(result),
@@ -128,13 +126,19 @@ async function executeToolsNode(state: typeof StateAnnotation.State) {
         state.messages.push({
           role: "tool",
           content: String(result),
-          tool_calls: [toolCall],
+          tool_call_id: toolCall.id,
         });
       } catch (error) {
         console.error(`Tool ${toolCall.name} error:`, error);
         results.push({
           tool: toolCall.name,
           result: `工具执行失败: ${error instanceof Error ? error.message : String(error)}`,
+        });
+
+        state.messages.push({
+          role: "tool",
+          content: `工具执行失败: ${error instanceof Error ? error.message : String(error)}`,
+          tool_call_id: toolCall.id,
         });
       }
     }
@@ -164,11 +168,20 @@ async function generateAnswerNode(state: typeof StateAnnotation.State) {
       if (msg.role === "user") {
         return new HumanMessage(msg.content);
       } else if (msg.role === "assistant") {
-        return new AIMessage(msg.content);
+        const content = msg.content;
+        const toolCalls = msg.tool_calls;
+
+        if (toolCalls && toolCalls.length > 0) {
+          return new AIMessage({
+            content: content,
+            tool_calls: toolCalls,
+          });
+        }
+        return new AIMessage(content);
       } else if (msg.role === "tool") {
         return new ToolMessage({
           content: msg.content,
-          tool_call_id: "tool_result",
+          tool_call_id: msg.tool_call_id || "",
         });
       }
       return msg;
