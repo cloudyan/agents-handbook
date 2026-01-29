@@ -1,7 +1,7 @@
 {
   "node_version": "22",
   "graphs": {
-    "quick-start": "./src/agent.ts:agent"
+    "agent": "./src/agent.ts:agent"
   },
   "env": ".env"
 }

@@ -5,7 +5,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "npx @langchain/langgraph-cli dev"
+    "dev": "npx @langchain/langgraph-cli dev",
+    "dev2": "tsx ./src/client"
   },
   "keywords": [],
   "author": "",
@@ -14,12 +15,14 @@
     "@langchain/community": "^1.1.9",
     "@langchain/core": "^1.1.17",
     "@langchain/langgraph": "^1.1.2",
+    "@langchain/langgraph-sdk": "^1.5.5",
     "@langchain/openai": "^1.2.3",
     "dotenv": "^17.2.3",
     "langchain": "^1.2.15",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@langchain/langgraph-cli": "^1.1.11"
+    "@langchain/langgraph-cli": "^1.1.11",
+    "tsx": "^4.21.0"
   }
 }

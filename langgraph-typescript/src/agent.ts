@@ -66,7 +66,7 @@ const modelWithTools = model.bindTools(tools);
 const llmCall: GraphNode<typeof MessagesState> = async (state) => {
   const response = await modelWithTools.invoke([
     new SystemMessage(
-      "You are a helpful assistant tasked with performing arithmetic on a set of inputs."
+      "你是一个有帮助的助手，负责对一组输入进行算术运算。请使用中文回答"
     ),
     ...state.messages,
   ]);
