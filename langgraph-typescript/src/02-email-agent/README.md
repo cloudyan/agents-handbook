@@ -1,3 +1,7 @@
+# thinking-in-langgraph
+
+- https://docs.langchain.com/oss/javascript/langgraph/thinking-in-langgraph
+
 ## 产品要求
 
 邮件代理应该能够：

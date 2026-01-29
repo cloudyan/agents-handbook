@@ -45,49 +45,51 @@ type EmailAgentStateType = z.infer<typeof EmailAgentState>;
 type EmailClassificationType = z.infer<typeof EmailClassificationSchema>;
 
 
-// 模拟工具运行函数
-async function runTool(toolCall: string): Promise<string> {
-  // 模拟工具执行延迟
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  return `工具调用结果: ${toolCall}`;
-}
 
-// LLM 可修复
-const executeTool: GraphNode<typeof EmailAgentState> = async (state, config) => {
-  try {
-    const result = await runTool(state.toolCall);
-    return new Command({
-      update: { toolResult: result },
-      goto: "agent",
-    });
-  } catch (error) {
-    // Let the LLM see what went wrong and try again
-    return new Command({
-      update: { toolResult: `Tool error: ${error}` },
-      goto: "agent"
-    });
-  }
-}
+// // 模拟工具运行函数
+// async function runTool(toolCall: string): Promise<string> {
+//   // 模拟工具执行延迟
+//   await new Promise((resolve) => setTimeout(resolve, 1000));
+//   return `工具调用结果: ${toolCall}`;
+// }
 
-// 用户可修复
-const lookupCustomerHistory: GraphNode<typeof State> = async (state, config) => {
-  if (!state.customerId) {
-    const userInput = interrupt({
-      message: "Customer ID needed",
-      request: "Please provide the customer's account ID to look up their subscription history",
-    });
-    return new Command({
-      update: { customerId: userInput.customerId },
-      goto: "lookupCustomerHistory",
-    });
-  }
-  // Now proceed with the lookup
-  const customerData = await fetchCustomerHistory(state.customerId);
-  return new Command({
-    update: { customerHistory: customerData },
-    goto: "draftResponse",
-  });
-}
+// // LLM 可修复
+// const executeTool: GraphNode<typeof EmailAgentState> = async (state, config) => {
+//   try {
+//     const result = await runTool(state.toolCall);
+//     return new Command({
+//       update: { toolResult: result },
+//       goto: "agent",
+//     });
+//   } catch (error) {
+//     // Let the LLM see what went wrong and try again
+//     return new Command({
+//       update: { toolResult: `Tool error: ${error}` },
+//       goto: "agent"
+//     });
+//   }
+// }
+
+// // 用户可修复
+// const lookupCustomerHistory: GraphNode<typeof State> = async (state, config) => {
+//   if (!state.customerId) {
+//     const userInput = interrupt({
+//       message: "Customer ID needed",
+//       request: "Please provide the customer's account ID to look up their subscription history",
+//     });
+//     return new Command({
+//       update: { customerId: userInput.customerId },
+//       goto: "lookupCustomerHistory",
+//     });
+//   }
+//   // Now proceed with the lookup
+//   const customerData = await fetchCustomerHistory(state.customerId);
+//   return new Command({
+//     update: { customerHistory: customerData },
+//     goto: "draftResponse",
+//   });
+// };
+
 
 
 const readEmail: GraphNode<typeof EmailAgentState> = async (state, config) => {

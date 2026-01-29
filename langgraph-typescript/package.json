@@ -6,6 +6,7 @@
   "main": "index.js",
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "03-chaining": "tsx ./src/03-chaining/agent.ts",
     "02-email-agent": "tsx ./src/02-email-agent/agent.ts",
     "quickstart:server": "npx @langchain/langgraph-cli dev --config ./src/01-quick-start/langgraph.json",
     "quickstart:client": "tsx ./src/01-quick-start/client"
