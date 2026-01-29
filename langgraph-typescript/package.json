@@ -5,6 +5,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
+    "typecheck": "tsc --noEmit",
+    "02-email-agent": "tsx ./src/02-email-agent/agent.ts",
     "quickstart:server": "npx @langchain/langgraph-cli dev --config ./src/01-quick-start/langgraph.json",
     "quickstart:client": "tsx ./src/01-quick-start/client"
   },
@@ -23,6 +25,7 @@
   },
   "devDependencies": {
     "@langchain/langgraph-cli": "^1.1.11",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   }
 }

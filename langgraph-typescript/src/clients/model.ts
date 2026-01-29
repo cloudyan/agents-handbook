@@ -1,7 +1,7 @@
-import dotenv from "dotenv";
+import { config } from "dotenv";
 import { ChatOpenAI } from "@langchain/openai";
 
-dotenv.config({ override: true });
+config({ override: true });
 
 export function createModelClient(options?: {
   modelName?: string;
