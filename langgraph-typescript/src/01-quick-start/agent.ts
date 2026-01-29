@@ -13,7 +13,7 @@ import {
   END,
 } from "@langchain/langgraph";
 import { SystemMessage, AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
-import { createModelClient } from "./clients/model";
+import { createModelClient } from "../clients/model";
 
 
 const model = createModelClient();

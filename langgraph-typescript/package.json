@@ -5,8 +5,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "npx @langchain/langgraph-cli dev",
-    "dev2": "tsx ./src/client"
+    "quickstart:server": "npx @langchain/langgraph-cli dev --config ./src/01-quick-start/langgraph.json",
+    "quickstart:client": "tsx ./src/01-quick-start/client"
   },
   "keywords": [],
   "author": "",
