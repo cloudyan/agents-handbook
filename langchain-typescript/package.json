@@ -29,6 +29,7 @@
     "14-mini-claude:v1": "tsx src/14-mini-claude-code/v1-basic.ts",
     "14-mini-claude:v2": "tsx src/14-mini-claude-code/v2-todo.ts",
     "14-mini-claude:v3": "tsx src/14-mini-claude-code/v3-subagent.ts",
+    "14-mini-claude:v4": "tsx src/14-mini-claude-code/v4-skills-agent.ts",
     "agent": "tsx src/agents/index.ts"
   },
   "keywords": [

@@ -1,13 +1,11 @@
 #!/usr/bin/env tsx
 /**
- * Mini Claude Code v3 - 子代理机制
+ * Mini Claude Code v4 - Skills Mechanism
  *
- * 核心理念："分而治之，上下文隔离"
- * =============================================================
- * 通过生成子任务，我们得到：
- *   - 为父代理提供干净的上下文
- *   - 自然的任务分解
- *   - 相同的代理循环，不同的上下文
+ * 核心理念："知识外化"
+ * ============================================
+ * 技能是通过 SKILL.md 文件存储的知识。
+ * 它们允许模型按需加载领域知识（如 PDF 处理、MCP 开发等）。
  */
 
 import { createModelClient } from "../clients/model";
@@ -18,6 +16,8 @@ import { writeFile } from "../tools/write-file";
 import { editFile } from "../tools/edit-file";
 import { todoWrite } from "../tools/todo-write";
 import { createTaskTool, type AgentConfig } from "../tools/task";
+import { createSkillTool } from "../tools/skill";
+import { SKILLS } from "../skills/loader";
 import * as readline from "readline";
 
 const WORKDIR = process.cwd();
@@ -55,15 +55,19 @@ const taskTool = createTaskTool({
   agentTypes: AGENT_TYPES
 });
 
-const allTools = [...baseTools, taskTool];
+const skillTool = createSkillTool();
+
+const allTools = [...baseTools, taskTool, skillTool];
 const modelWithTools = createModelClient({ temperature: 0.1 }).bindTools(allTools);
 
 const SYSTEM = `您是在 ${WORKDIR} 的编码代理。
-循环：规划 -> 使用工具行动 -> 报告结果。
-您可以为复杂子任务生成子代理：
+可用技能：
+${SKILLS.getDescriptions()}
+可用子代理：
 ${getAgentDescriptions()}
 规则：
-- 对于需要集中探索或实现的子任务，使用 task 工具
+- 当任务匹配技能描述时，立即使用 skill 工具加载技能
+- 对于需要独立探索或实现的子任务，使用 task 工具
 - 使用 todo_write 跟踪多步工作
 - 优先使用工具而不是文字。行动，不要只是解释。
 - 使用中文进行会话和思考。`;
@@ -84,6 +88,8 @@ async function agentLoop(history: BaseMessage[]) {
         if (selectedTool) {
           if (tc.name === "task") {
             console.log(`\n> task: ${(tc.args as any).description}`);
+          } else if (tc.name === "skill") {
+            console.log(`\n> Loading skill: ${(tc.args as any).skill}`);
           } else {
             console.log(`\n> ${tc.name}`);
           }
@@ -102,7 +108,7 @@ async function agentLoop(history: BaseMessage[]) {
 }
 
 async function main() {
-  console.log(`Mini Claude Code v3 (LangChain TS) - ${WORKDIR}`);
+  console.log(`Mini Claude Code v4 (LangChain TS) - ${WORKDIR}`);
   console.log("输入 'exit' 退出。\n");
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -120,5 +126,5 @@ async function main() {
   ask();
 }
 
-// 测试： 复杂任务,调研查询并规划设计实现快排算法
+// 测试： 使用 code-mentor 技能，分析 v4-skills-agent.ts 文件并总结其功能
 main().catch(console.error);
