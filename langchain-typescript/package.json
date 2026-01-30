@@ -25,7 +25,8 @@
     "12-agent-chat": "npx @langchain/langgraph-cli dev --config src/12-agent-chat/langgraph.json",
     "12-test-api": "tsx src/12-agent-chat/test-api.ts",
     "13-agent-complete": "npx @langchain/langgraph-cli dev --config src/13-agent-complete/langgraph.json",
-    "13-test-complete": "tsx src/13-agent-complete/test-api.ts"
+    "13-test-complete": "tsx src/13-agent-complete/test-api.ts",
+    "agent": "tsx src/agents/index.ts"
   },
   "keywords": [
     "langchain",
