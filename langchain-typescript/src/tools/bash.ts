@@ -10,22 +10,21 @@ export const bash = tool(
 
     console.log(`\n> bash: ${command}`);
     try {
-      const exec = await import("child_process").then((mod) => mod.exec);
-      return new Promise<string>((resolve) => {
-        exec(command, (error, stdout, stderr) => {
-          if (error) {
-            resolve(`错误：${error.message}`);
-            return;
-          }
-          if (stderr) {
-            resolve(`标准错误输出：${stderr}`);
-            return;
-          }
-          resolve(stdout);
-        });
-      });
+      const execSync = await import("child_process").then((mod) => mod.execSync);
+
+      // 2 分钟超时限制 & 缓冲区10MB
+      return execSync(command, {
+        encoding: "utf8",
+        timeout: 120000,
+        maxBuffer: 1024 * 1024 * 10,
+      }) as string;
     } catch (e: any) {
-      return `错误：${e.message}`;
+      // bash 工具的错误处理
+      const stdout = e.stdout ? e.stdout.toString() : "";
+      const stderr = e.stderr ? e.stderr.toString() : "";
+      const errorMsg = e.message || "";
+      // 完整的错误信息，能让大模型理解错误的原因，并尝试自动修正
+      return `错误：${stdout}${stderr}${errorMsg}`.substring(0, 50000);
     }
   },
   {
@@ -35,4 +34,4 @@ export const bash = tool(
       command: z.string().describe("要执行的 Bash 命令，例如 ls -la"),
     }),
   }
-)
+);
