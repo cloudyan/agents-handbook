@@ -9,6 +9,32 @@
  * 关键见解：模型是决策者。代码只是提供工具并运行循环。
  */
 
+
+/**
+
+传统助手：
+```
+用户 -> 模型 -> 文本回复
+```
+
+Agent 系统：
+```
+用户 -> 模型 -> [工具 -> 结果]* -> 回复
+                ^_________|
+```
+星号很重要。模型**反复**调用工具，直到它决定任务完成。这将聊天机器人转变为自主代理。
+
+核心逻辑 agentLoop：
+
+```ts
+while (true) {
+  const response = await model.invoke({messages, tools});
+  const results = executeTools(response.tool_calls);
+  messages.push(results);
+}
+
+ */
+
 import { createModelClient } from "../clients/model";
 import { HumanMessage, ToolMessage, SystemMessage, BaseMessage } from "@langchain/core/messages";
 import { bash } from "../tools/bash";
@@ -32,6 +58,7 @@ const SYSTEM = `您是在 ${WORKDIR} 的编码代理。
 - 完成后，总结更改了什么。
 - 使用中文进行会话和思考。`;
 
+// 核心代理循环
 async function agentLoop(history: BaseMessage[]) {
   try {
     while (true) {
@@ -69,7 +96,9 @@ async function main() {
   const history: BaseMessage[] = [];
 
   const ask = () => rl.question("You: ", async (q) => {
-    if (["exit", "quit", "q"].includes(q.toLowerCase()) || !q) return rl.close();
+    if (["exit", "quit", "q"].includes(q.toLowerCase()) || !q) {
+      return rl.close();
+    }
     history.push(new HumanMessage(q));
     await agentLoop(history);
     console.log("\n");
