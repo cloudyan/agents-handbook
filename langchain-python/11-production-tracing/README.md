@@ -86,7 +86,7 @@ with with_tracking("chain_name", monitor, logger):
 # LangSmith 配置
 LANGSMITH_TRACING=true
 LANGSMITH_API_KEY=your_langsmith_api_key
-LANGSMITH_PROJECT=agents-handbook
+LANGSMITH_PROJECT=agent-recipes
 
 # OpenAI 配置
 OPENAI_API_KEY=your_openai_api_key

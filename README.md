@@ -1,6 +1,6 @@
-# 🦜🔗 Agents Handbook（Python & TypeScript）
+# 🦜🔗 Agent Recipes（Python & TypeScript）
 
-「一份多框架 AI Agent 开发实战手册，涵盖 LangChain、ai-sdk、claude-agent-sdk 等主流框架，帮助你用最短时间掌握大模型应用开发。」
+「一份多框架 AI Agent 开发实战代码集，涵盖 LangChain、ai-sdk、claude-agent-sdk 等主流框架，13 个渐进式示例帮助你从入门到精通。」
 
 ---
 
@@ -101,7 +101,7 @@ result = agent.invoke({"messages": [{"role": "user", "content": "查询北京天
 ## 🗂️ 目录结构
 
 ```bash
-agents-handbook/
+agent-recipes/
   ├─ langchain-python/       # LangChain Python 示例
   │  ├─ 00-env/              # 环境自检
   │  ├─ 01-hello-chain/      # 最简 LLMChain

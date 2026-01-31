@@ -1,6 +1,6 @@
 # 架构文档
 
-本文档描述 Agents Handbook 项目的架构模式和设计原则。
+本文档描述 Agent Recipes 项目的架构模式和设计原则。
 
 ## 项目结构哲学
 
@@ -9,7 +9,7 @@
 项目采用 Python 和 TypeScript 双语言实现，每个示例都有对应的实现版本：
 
 ```
-agents-handbook/
+agent-recipes/
 ├── langchain-python/       # Python 实现
 │   ├── 00-env/             # 环境验证
 │   ├── 01-hello-chain/     # 基础示例
@@ -311,7 +311,7 @@ def validate_env():
 项目结构支持轻松添加新框架（如 ai-sdk、claude-agent-sdk）：
 
 ```
-agents-handbook/
+agent-recipes/
 ├── langchain-python/
 ├── langchain-typescript/
 ├── ai-sdk/           # 新框架

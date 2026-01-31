@@ -162,7 +162,7 @@ def setup_langsmith():
         print("   访问 https://smith.langchain.com/ 获取 API Key")
         return False
 
-    project_name = os.getenv("LANGSMITH_PROJECT", "agents-handbook")
+    project_name = os.getenv("LANGSMITH_PROJECT", "agent-recipes")
     os.environ["LANGSMITH_TRACING"] = "true"
     os.environ["LANGSMITH_PROJECT"] = project_name
 

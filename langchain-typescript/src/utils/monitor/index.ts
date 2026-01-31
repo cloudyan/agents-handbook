@@ -158,7 +158,7 @@ export class CustomLogger {
 export function setupLangsmith(): boolean {
   const apiKey = process.env.LANGSMITH_API_KEY || "";
   const tracingEnabled = process.env.LANGSMITH_TRACING === "true";
-  const projectName = process.env.LANGSMITH_PROJECT || "agents-handbook";
+  const projectName = process.env.LANGSMITH_PROJECT || "agent-recipes";
 
   if (!apiKey) {
     console.log("⚠️  未设置 LANGSMITH_API_KEY，LangSmith 追踪已禁用");

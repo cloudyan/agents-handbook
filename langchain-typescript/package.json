@@ -1,7 +1,7 @@
 {
   "name": "langchain-typescript",
   "version": "0.1.0",
-  "description": "LangChain TypeScript",
+  "description": "Agent Recipes - 多框架 AI Agent 开发实战代码集",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",

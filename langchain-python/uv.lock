@@ -14,7 +14,7 @@ resolution-markers = [
 ]
 
 [[package]]
-name = "agents-handbook"
+name = "agent-recipes"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

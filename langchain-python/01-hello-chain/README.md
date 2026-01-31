@@ -39,7 +39,7 @@ jupyter lab
 #### 3. 在 Jupyter Lab 中导航
 
 ```
-agents-handbook/
+agent-recipes/
 └── langchain-python/
     ├── 01-hello-chain/
     │   └── hello_chain.ipynb  ← 点击这个文件
